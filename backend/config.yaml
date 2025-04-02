@@ -1,0 +1,22 @@
+mongodb:
+  uri: mongodb://root:spdlw7qd@blue-note-db-mongodb.ns-h49hpg7e.svc:27017
+  database: bluenote
+
+redis:
+  uri: redis://default:dfwfdwgx@blue-note-redis-db-redis.ns-h49hpg7e.svc:6379
+
+jwt:
+  secret: blue-note-jwt-secret-key
+  expire: 24  # 小时
+
+server:
+  port: 8080
+
+objectstorage:
+  endpoint: object-storage.objectstorage-system.svc.cluster.local
+  internalendpoint: object-storage.objectstorage-system.svc.cluster.local
+  externalendpoint: objectstorageapi.hzh.sealos.run
+  accesskey: h49hpg7e
+  secretkey: p4j8pq9ctnbhshpj
+  bucketname: blue-note
+  usessl: false 
