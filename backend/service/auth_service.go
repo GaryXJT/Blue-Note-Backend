@@ -63,7 +63,8 @@ func (s *AuthService) LoginOrRegister(req *model.LoginRequest) (*model.User, str
 			Username:  req.Username,
 			Password:  string(hashedPassword),
 			Nickname:  req.Username,
-			Status:    "active",
+			Status:    "happy",
+			Role:      "user",
 			IsAdmin:   false,
 			Avatar:    s.profileService.GetDefaultAvatarURL(),
 			CreatedAt: time.Now(),
@@ -116,4 +117,55 @@ func (s *AuthService) LoginOrRegister(req *model.LoginRequest) (*model.User, str
 	expiresAt := time.Now().Add(time.Hour * time.Duration(expireHours))
 	
 	return &user, token, expiresAt, false, nil
+}
+
+// ChangePassword 修改用户密码
+func (s *AuthService) ChangePassword(username, oldPassword, newPassword string) error {
+	// 查找用户
+	var user model.User
+	err := s.db.Collection("users").FindOne(context.Background(), bson.M{"username": username}).Decode(&user)
+	if err == mongo.ErrNoDocuments {
+		return errors.New("用户不存在")
+	} else if err != nil {
+		return errors.New("用户查询失败")
+	}
+	
+	// 验证旧密码
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(oldPassword))
+	if err != nil {
+		return errors.New("原密码错误")
+	}
+	
+	// 验证新密码长度
+	if len(newPassword) < 6 {
+		return errors.New("新密码长度不能少于6个字符")
+	}
+	
+	// 加密新密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("密码加密失败")
+	}
+	
+	// 更新密码
+	updateResult, err := s.db.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": user.ID},
+		bson.M{
+			"$set": bson.M{
+				"password":   string(hashedPassword),
+				"updated_at": time.Now(),
+			},
+		},
+	)
+	
+	if err != nil {
+		return errors.New("密码更新失败")
+	}
+	
+	if updateResult.ModifiedCount == 0 {
+		return errors.New("密码未更新")
+	}
+	
+	return nil
 }

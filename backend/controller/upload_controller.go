@@ -121,7 +121,7 @@ func (c *UploadController) UploadFile(ctx *gin.Context) {
 	// 直接在这里标记为临时文件，不再需要单独的API
 	if c.fileService != nil {
 		userID := ctx.GetString("userId")
-		err := c.fileService.MarkTemporary(userID, objectName)
+		err := c.fileService.MarkTemporary(userID, objectName, file.Size, fileType)
 		if err != nil {
 			log.Printf("[%s] 标记临时文件失败: %v", requestID, err)
 			// 即使标记失败也继续，不影响上传结果

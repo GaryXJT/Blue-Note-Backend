@@ -25,10 +25,25 @@ type ObjectStorageService struct {
 }
 
 func NewObjectStorageService(cfg *config.Config) (*ObjectStorageService, error) {
-	// 使用内部端点
-	endpoint := cfg.ObjectStorage.InternalEndpoint
+	fmt.Println("==== 对象存储配置 ====")
+	fmt.Printf("Endpoint: %s\n", cfg.ObjectStorage.Endpoint)
+	fmt.Printf("InternalEndpoint: %s\n", cfg.ObjectStorage.InternalEndpoint)
+	fmt.Printf("ExternalEndpoint: %s\n", cfg.ObjectStorage.ExternalEndpoint)
+	fmt.Printf("BucketName: %s\n", cfg.ObjectStorage.BucketName)
+	fmt.Printf("AccessKey: %s\n", cfg.ObjectStorage.AccessKey)
+	fmt.Printf("UseSSL: %v\n", cfg.ObjectStorage.UseSSL)
 	
-	// 创建自定义传输配置，增加超时时间
+	// 在本地环境使用外部端点，在生产环境使用内部端点
+	var endpoint string
+	if cfg.Environment == "local" || cfg.Environment == "development" {
+		endpoint = cfg.ObjectStorage.Endpoint // 使用主端点，通常是外部可访问的
+	} else {
+		endpoint = cfg.ObjectStorage.InternalEndpoint // 生产环境使用内部端点
+	}
+	
+	fmt.Printf("使用端点: %s\n", endpoint)
+	
+	// 创建自定义传输配置
 	transport := &http.Transport{
 		ResponseHeaderTimeout: 30 * time.Second,
 		DialContext: (&net.Dialer{
@@ -49,20 +64,20 @@ func NewObjectStorageService(cfg *config.Config) (*ObjectStorageService, error) 
 	
 	if err != nil {
 		fmt.Printf("创建MinIO客户端失败: %v\n", err)
-		return &ObjectStorageService{
-			client:           nil,
-			bucketName:       "h49hpg7e-blue-note",
-			internalEndpoint: cfg.ObjectStorage.InternalEndpoint,
-			externalEndpoint: cfg.ObjectStorage.ExternalEndpoint,
-		}, nil
+		// 在开发环境中，返回降级服务而不是错误
+		if cfg.Environment == "local" || cfg.Environment == "development" {
+			fmt.Println("在本地环境中使用降级模式")
+			return NewDegradedObjectStorageService(), nil
+		}
+		return nil, fmt.Errorf("创建MinIO客户端失败: %w", err)
 	}
 	
 	fmt.Printf("MinIO客户端创建成功\n")
 	
-	// 创建服务实例
+	// 创建服务实例，使用配置中的桶名
 	service := &ObjectStorageService{
 		client:           minioClient,
-		bucketName:       "h49hpg7e-blue-note",
+		bucketName:       cfg.ObjectStorage.BucketName,
 		internalEndpoint: cfg.ObjectStorage.InternalEndpoint,
 		externalEndpoint: cfg.ObjectStorage.ExternalEndpoint,
 	}
@@ -82,17 +97,22 @@ func NewObjectStorageService(cfg *config.Config) (*ObjectStorageService, error) 
 		fmt.Printf("成功列出存储桶，共 %d 个\n", len(buckets))
 		
 		// 检查存储桶是否存在
-		exists, err := minioClient.BucketExists(ctx, "h49hpg7e-blue-note")
+		exists, err := minioClient.BucketExists(ctx, cfg.ObjectStorage.BucketName)
 		if err != nil {
 			fmt.Printf("检查存储桶是否存在失败: %v\n", err)
 			return
 		}
 		
 		if !exists {
-			fmt.Printf("存储桶不存在，尝试创建...\n")
-			// 创建存储桶和设置策略的代码...
+			fmt.Printf("存储桶 %s 不存在，尝试创建...\n", cfg.ObjectStorage.BucketName)
+			err = minioClient.MakeBucket(ctx, cfg.ObjectStorage.BucketName, minio.MakeBucketOptions{})
+			if err != nil {
+				fmt.Printf("创建存储桶失败: %v\n", err)
+				return
+			}
+			fmt.Printf("存储桶 %s 创建成功\n", cfg.ObjectStorage.BucketName)
 		} else {
-			fmt.Printf("存储桶已存在\n")
+			fmt.Printf("存储桶 %s 已存在\n", cfg.ObjectStorage.BucketName)
 		}
 	}()
 	
@@ -101,6 +121,12 @@ func NewObjectStorageService(cfg *config.Config) (*ObjectStorageService, error) 
 
 // UploadFile 上传文件，带有故障转移机制
 func (s *ObjectStorageService) UploadFile(fileReader io.Reader, objectName, contentType string) (string, error) {
+	// 如果客户端为空或在本地环境中，直接使用本地存储
+	if s.client == nil || config.GetConfig().Environment == "local" {
+		fmt.Printf("使用本地存储上传文件: %s\n", objectName)
+		return s.uploadToLocalStorage(fileReader, objectName, contentType)
+	}
+	
 	// 尝试上传到对象存储
 	for retry := 0; retry < 3; retry++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -135,13 +161,19 @@ func (s *ObjectStorageService) UploadFile(fileReader io.Reader, objectName, cont
 
 // 本地存储备用方案
 func (s *ObjectStorageService) uploadToLocalStorage(fileReader io.Reader, objectName, contentType string) (string, error) {
+	fmt.Printf("使用本地存储上传文件: %s\n", objectName)
+	
 	// 确保本地存储目录存在
 	uploadDir := "./uploads"
-	os.MkdirAll(filepath.Dir(filepath.Join(uploadDir, objectName)), 0755)
+	fullPath := filepath.Join(uploadDir, objectName)
+	dirPath := filepath.Dir(fullPath)
+	
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return "", fmt.Errorf("创建目录失败: %w", err)
+	}
 	
 	// 创建本地文件
-	localPath := filepath.Join(uploadDir, objectName)
-	out, err := os.Create(localPath)
+	out, err := os.Create(fullPath)
 	if err != nil {
 		return "", fmt.Errorf("创建本地文件失败: %w", err)
 	}
@@ -153,8 +185,10 @@ func (s *ObjectStorageService) uploadToLocalStorage(fileReader io.Reader, object
 		return "", fmt.Errorf("写入本地文件失败: %w", err)
 	}
 	
-	// 返回本地文件URL
-	// 注意：这需要配置一个静态文件服务器来提供这些文件
+	fmt.Printf("文件已保存到本地: %s\n", fullPath)
+	
+	// 返回本地文件URL - 使用绝对路径，确保前端可以访问
+	// 注意：这里不需要服务器域名，因为它是相对于当前域名的路径
 	return fmt.Sprintf("/uploads/%s", objectName), nil
 }
 
@@ -230,9 +264,10 @@ func (s *ObjectStorageService) UploadAdImage(adType string, adID string, file io
 // NewDegradedObjectStorageService 创建一个降级模式的对象存储服务
 func NewDegradedObjectStorageService() *ObjectStorageService {
 	cfg := config.GetConfig().ObjectStorage
+	fmt.Println("创建降级模式的对象存储服务")
 	return &ObjectStorageService{
 		client:           nil,
-		bucketName:       "h49hpg7e-blue-note",
+		bucketName:       cfg.BucketName,
 		internalEndpoint: cfg.InternalEndpoint,
 		externalEndpoint: cfg.ExternalEndpoint,
 	}
@@ -274,6 +309,12 @@ func (s *ObjectStorageService) StartHealthCheck() {
 
 // GetFileURL 获取文件URL
 func (s *ObjectStorageService) GetFileURL(filePath string) string {
+	// 如果是本地环境或客户端为空，返回本地URL
+	if s.client == nil || config.GetConfig().Environment == "local" {
+		return fmt.Sprintf("/uploads/%s", filePath)
+	}
+	
+	// 否则返回对象存储URL
 	return fmt.Sprintf("https://%s/%s/%s", 
 		s.externalEndpoint,
 		s.bucketName,

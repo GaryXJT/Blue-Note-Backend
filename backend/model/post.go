@@ -134,3 +134,40 @@ type PostListItem struct {
 		Avatar   string `json:"avatar"`
 	} `json:"user"`
 }
+
+// CursorQuery 基于游标的查询参数
+type CursorQuery struct {
+	Cursor string `form:"cursor" binding:"omitempty"`
+	Limit  int    `form:"limit" binding:"omitempty,min=1,max=100"`
+	Type   string `form:"type" binding:"omitempty,oneof=image video"`
+	Tag    string `form:"tag" binding:"omitempty"`
+	Status string `form:"status" binding:"omitempty,oneof=draft pending approved rejected"`
+	UserID string `form:"userId" binding:"omitempty"`
+}
+
+// CursorBasedPostResponse 基于游标的帖子列表响应
+type CursorBasedPostResponse struct {
+	Posts      []PostItem `json:"posts"`
+	NextCursor string     `json:"nextCursor"`
+	HasMore    bool       `json:"hasMore"`
+}
+
+// PostItem 帖子项，含有更多的字段用于瀑布流布局
+type PostItem struct {
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Type      string    `json:"type"`
+	Tags      []string  `json:"tags"`
+	Files     []string  `json:"files"`
+	CoverImage string    `json:"coverImage"`
+	Width     int       `json:"width"`  // 封面图宽度
+	Height    int       `json:"height"` // 封面图高度
+	UserID    string    `json:"userId"`
+	Username  string    `json:"username"`
+	Nickname  string    `json:"nickname"`
+	Avatar    string    `json:"avatar"`
+	Likes     int       `json:"likes"`
+	Comments  int       `json:"comments"`
+	CreatedAt time.Time `json:"createdAt"`
+}

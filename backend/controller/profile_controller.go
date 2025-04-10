@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,8 +44,20 @@ func (c *ProfileController) GetProfile(ctx *gin.Context) {
 
 // UpdateProfile 更新用户资料（包含头像上传）
 func (c *ProfileController) UpdateProfile(ctx *gin.Context) {
+	// 使用 Gin 的日志
+	ctx.Set("startTime", time.Now())
+	
+	// 打印请求信息
+	ctx.Set("requestPath", ctx.Request.URL.Path)
+	ctx.Set("requestMethod", ctx.Request.Method)
+	
+	// 获取并打印 userId
 	userID := ctx.GetString("userId")
-	fmt.Printf("更新资料 - 用户ID: %s\n", userID)
+	ctx.Set("userId", userID)
+	
+	// 打印到控制台
+	fmt.Println("==== UpdateProfile 被调用 ====")
+	fmt.Printf("userID: %s\n", userID)
 	
 	// 打印所有请求参数
 	fmt.Println("请求参数:")

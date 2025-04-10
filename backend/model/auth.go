@@ -15,7 +15,7 @@ type LoginRequest struct {
 // RegisterRequest 注册请求
 type RegisterRequest struct {
 	Username        string `json:"username" binding:"required,min=1,max=20"`
-	Password        string `json:"password" binding:"required,min=6,max=20"`
+	Password        string `json:"password" binding:"required,min=1,max=20"`
 	ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 	Nickname        string `json:"nickname" binding:"required,min=1,max=20"`
 	Email           string `json:"email" binding:"required,email"`

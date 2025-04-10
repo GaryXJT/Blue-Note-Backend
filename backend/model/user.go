@@ -11,7 +11,7 @@ type User struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Username     string             `bson:"username" json:"username"`
 	Password     string             `bson:"password" json:"-"` // 不返回密码
-	Role         string             `bson:"role" json:"role"`
+	Role         string             `bson:"role" json:"role"` // "user", "admin"
 	Status       string             `bson:"status" json:"status"` // "active", "banned", "happy", "relaxed" 等
 	Nickname     string             `bson:"nickname" json:"nickname"`
 	Avatar       string             `bson:"avatar" json:"avatar"`
@@ -51,7 +51,7 @@ type ProfileResponse struct {
 // UpdateProfileRequest 更新用户资料请求
 type UpdateProfileRequest struct {
 	Username string `json:"username" binding:"omitempty,min=1,max=20"`
-	Nickname string `json:"nickname" binding:"omitempty,min=2,max=20"`
+	Nickname string `json:"nickname" binding:"omitempty,min=1,max=20"`
 	Avatar   string `json:"avatar" binding:"omitempty"`
 	Bio      string `json:"bio" binding:"omitempty,max=200"`
 	Gender   string `json:"gender" binding:"omitempty,oneof=male female other"`

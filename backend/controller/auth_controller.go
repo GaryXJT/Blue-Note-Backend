@@ -3,6 +3,7 @@ package controller
 import (
 	"blue-note/model"
 	"blue-note/service"
+	"blue-note/util"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -47,7 +48,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"code":    40101,
-			"message": "登录失败",
+			"message": "用户名或密码错误",
 			"error":   err.Error(),
 		})
 		return
@@ -86,4 +87,49 @@ func getRole(user *model.User) string {
 		return "admin"
 	}
 	return "user"
+}
+
+// ChangePassword 修改密码
+func (c *AuthController) ChangePassword(ctx *gin.Context) {
+	var req struct {
+		Username    string `json:"username" binding:"required"`
+		OldPassword string `json:"oldPassword" binding:"required"`
+		NewPassword string `json:"newPassword" binding:"required,min=6"`
+		CaptchaID   string `json:"captchaId" binding:"required"`
+		CaptchaCode string `json:"captchaCode" binding:"required"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    40003,
+			"message": "请求参数错误",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// 验证验证码
+	if !util.VerifyCaptcha(req.CaptchaID, req.CaptchaCode) {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    40003,
+			"message": "验证码错误",
+		})
+		return
+	}
+
+	// 调用服务层修改密码
+	err := c.authService.ChangePassword(req.Username, req.OldPassword, req.NewPassword)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    40003,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "密码修改成功",
+		"data":    nil,
+	})
 }

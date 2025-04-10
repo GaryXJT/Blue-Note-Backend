@@ -24,6 +24,8 @@ type FileRecord struct {
 	Status    FileStatus         `bson:"status" json:"status"`          // 文件状态
 	Size      int64              `bson:"size" json:"size"`              // 文件大小(字节)
 	Type      string             `bson:"type" json:"type"`              // 文件类型(image/video)
+	Width     int                `bson:"width,omitempty" json:"width,omitempty"`           // 图片宽度(像素)
+	Height    int                `bson:"height,omitempty" json:"height,omitempty"`         // 图片高度(像素)
 	CreatedAt time.Time          `bson:"created_at" json:"createdAt"`   // 创建时间
 	UpdatedAt time.Time          `bson:"updated_at" json:"updatedAt"`   // 更新时间
 	UsedAt    *time.Time         `bson:"used_at,omitempty" json:"usedAt,omitempty"` // 使用时间

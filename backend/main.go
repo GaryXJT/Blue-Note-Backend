@@ -21,14 +21,28 @@ func main() {
 		log.Fatalf("初始化配置失败: %v", err)
 	}
 
+	// 在连接MongoDB之前
+	log.Printf("当前环境: %s", config.GetConfig().Environment)
+	log.Printf("正在连接MongoDB: %s", config.GetConfig().MongoDB.URI)
+
 	// 连接MongoDB
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(config.GetConfig().MongoDB.URI))
+	// 临时使用本地MongoDB连接
+	mongoURI := "mongodb://localhost:27017"
+	log.Printf("正在连接MongoDB: %s", mongoURI)
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		log.Fatalf("连接MongoDB失败: %v", err)
 	}
+
+	// 测试连接
+	err = mongoClient.Ping(ctx, nil)
+	if err != nil {
+		log.Fatalf("MongoDB Ping失败: %v", err)
+	}
+	log.Printf("MongoDB连接成功，数据库: %s", config.GetConfig().MongoDB.Database)
 	defer func() {
 		if err := mongoClient.Disconnect(ctx); err != nil {
 			log.Printf("断开MongoDB连接失败: %v", err)
@@ -89,7 +103,15 @@ func main() {
 	fileController := controller.NewFileController(fileService)
 
 	// 设置路由
-	r := router.SetupRouter(authController, profileController, postController, adminController, uploadController, fileController)
+	r := router.SetupRouter(
+		authController, 
+		profileController, 
+		postController, 
+		adminController, 
+		uploadController, 
+		fileController,
+		mongoClient,
+	)
 
 	// 设置最大并发连接数
 	server := &http.Server{

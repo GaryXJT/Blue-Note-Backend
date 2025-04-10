@@ -92,7 +92,7 @@ func (s *ProfileService) UpdateProfileWithAvatar(userID string, req *model.Updat
 	// 验证用户ID格式
 	objectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, fmt.Errorf("无效的用户ID格式: %w", err)
+		return nil, fmt.Errorf("无效的用户ID格式3: %w", err)
 	}
 
 	update := bson.M{

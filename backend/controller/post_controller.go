@@ -67,6 +67,12 @@ func (c *PostController) CreatePost(ctx *gin.Context) {
 }
 
 func (c *PostController) GetPostList(ctx *gin.Context) {
+	// 判断是否使用游标分页
+	if ctx.Query("cursor") != "" {
+		c.GetPostsWithCursor(ctx)
+		return
+	}
+
 	var query model.PostQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -77,6 +83,33 @@ func (c *PostController) GetPostList(ctx *gin.Context) {
 	}
 
 	result, err := c.postService.GetPostList(&query)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取帖子列表失败",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+		"data":    result,
+	})
+}
+
+// GetPostsWithCursor 获取帖子列表（使用游标分页）
+func (c *PostController) GetPostsWithCursor(ctx *gin.Context) {
+	var query model.CursorQuery
+	if err := ctx.ShouldBindQuery(&query); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误",
+		})
+		return
+	}
+
+	result, err := c.postService.GetPostListWithCursor(&query)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,

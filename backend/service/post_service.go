@@ -1059,4 +1059,128 @@ func (s *PostService) PublishDraft(draftID, userID string, updateReq *model.Upda
 	}
 
 	return &publishedPost, nil
+}
+
+// GetPostListWithCursor 获取帖子列表（基于游标的分页）
+func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.CursorBasedPostResponse, error) {
+	// 设置默认值
+	if query.Limit < 1 {
+		query.Limit = 10
+	}
+
+	// 构建查询条件
+	filter := bson.M{"status": "approved"} // 默认只查询已审核通过的帖子
+	
+	if query.Type != "" {
+		filter["type"] = query.Type
+	}
+	if query.Tag != "" {
+		filter["tags"] = query.Tag
+	}
+	if query.Status != "" {
+		filter["status"] = query.Status
+	}
+	if query.UserID != "" {
+		userID, err := primitive.ObjectIDFromHex(query.UserID)
+		if err != nil {
+			return nil, err
+		}
+		filter["user_id"] = userID
+	}
+
+	// 使用游标进行分页
+	if query.Cursor != "" {
+		cursorID, err := primitive.ObjectIDFromHex(query.Cursor)
+		if err != nil {
+			return nil, fmt.Errorf("无效的游标值: %w", err)
+		}
+		// 查询比当前游标ID更早的数据（按创建时间降序排序）
+		filter["_id"] = bson.M{"$lt": cursorID}
+	}
+
+	// 查询数据
+	opts := options.Find().
+		SetLimit(int64(query.Limit + 1)). // 多查询一条数据，用于判断是否还有更多
+		SetSort(bson.D{{"_id", -1}})      // 按ID降序排序，等同于按创建时间降序
+
+	cursor, err := s.db.Collection("posts").Find(context.Background(), filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var posts []*model.Post
+	if err = cursor.All(context.Background(), &posts); err != nil {
+		return nil, err
+	}
+
+	// 判断是否还有更多数据
+	hasMore := false
+	nextCursor := ""
+	if len(posts) > query.Limit {
+		hasMore = true
+		posts = posts[:query.Limit] // 去掉多查询的那一条
+	}
+
+	// 准备响应数据
+	var postItems []model.PostItem
+	for _, post := range posts {
+		// 获取封面图片的宽高信息
+		width, height := 800, 600 // 默认宽高
+		if post.CoverImage != "" {
+			// 这里可以添加获取图片宽高的逻辑
+			// 可以从文件元数据服务获取，或者用其他方式计算
+			if s.fileService != nil {
+				w, h, err := s.fileService.GetImageDimensions(post.CoverImage)
+				if err == nil {
+					width, height = w, h
+				}
+			}
+		} else if len(post.Files) > 0 {
+			// 如果没有设置封面图，使用第一张图片
+			if s.fileService != nil {
+				w, h, err := s.fileService.GetImageDimensions(post.Files[0])
+				if err == nil {
+					width, height = w, h
+				}
+			}
+		}
+
+		item := model.PostItem{
+			ID:        post.ID.Hex(),
+			Title:     post.Title,
+			Content:   post.Content,
+			Type:      post.Type,
+			Tags:      post.Tags,
+			Files:     post.Files,
+			CoverImage: post.CoverImage,
+			Width:     width,
+			Height:    height,
+			UserID:    post.UserID.Hex(),
+			Username:  post.Username,
+			Nickname:  post.Nickname,
+			Avatar:    post.Avatar,
+			Likes:     post.Likes,
+			Comments:  post.Comments,
+			CreatedAt: post.CreatedAt,
+		}
+		
+		// 如果封面图为空，使用第一张图片
+		if item.CoverImage == "" && len(post.Files) > 0 {
+			item.CoverImage = post.Files[0]
+		}
+		
+		postItems = append(postItems, item)
+	}
+
+	// 设置下一页游标
+	if hasMore && len(posts) > 0 {
+		nextCursor = posts[len(posts)-1].ID.Hex()
+	}
+
+	return &model.CursorBasedPostResponse{
+		Posts:      postItems,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	}, nil
 } 

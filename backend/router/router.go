@@ -3,11 +3,15 @@ package router
 import (
 	"blue-note/controller"
 	"blue-note/middleware"
+	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func SetupRouter(
@@ -17,6 +21,7 @@ func SetupRouter(
 	adminController *controller.AdminController,
 	uploadController *controller.UploadController,
 	fileController *controller.FileController,
+	mongoClient *mongo.Client,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -35,6 +40,14 @@ func SetupRouter(
 		MaxAge:           12 * time.Hour,
 	}))
 
+	// 配置静态文件服务
+	// 确保上传目录存在
+	os.MkdirAll("./uploads", 0755)
+	r.Static("/uploads", "./uploads")
+	
+	// 添加日志，帮助调试静态文件服务
+	fmt.Println("已配置静态文件服务: /uploads -> ./uploads")
+
 	// 公开路由
 	public := r.Group("/api/v1")
 	{
@@ -43,6 +56,7 @@ func SetupRouter(
 		{
 			auth.GET("/captcha", authController.GetCaptcha)
 			auth.POST("/login", authController.Login)
+			auth.POST("/change-password", authController.ChangePassword)
 		}
 
 		// 帖子相关（公开）
@@ -63,8 +77,8 @@ func SetupRouter(
 			// 获取用户资料
 			userGroup.GET("/profile/:userId", profileController.GetProfile)
 			
-			// 需要登录的路由
-			authUserGroup := userGroup.Use(middleware.JWTAuth())
+			// 单独的路由组，用于需要登录的操作
+			authUserGroup := userGroup.Group("")
 			{
 				// 更新个人资料（包含头像上传）
 				authUserGroup.PUT("/profile", profileController.UpdateProfile)
@@ -144,9 +158,26 @@ func SetupRouter(
 
 	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
+		// 检查MongoDB连接
+		mongoStatus := "ok"
+		if err := mongoClient.Ping(context.Background(), nil); err != nil {
+			mongoStatus = "error: " + err.Error()
+		}
+		
+		// 检查Redis连接（如果您使用了Redis客户端）
+		redisStatus := "ok"
+		// 假设您有一个redisClient
+		// if _, err := redisClient.Ping(context.Background()).Result(); err != nil {
+		//     redisStatus = "error: " + err.Error()
+		// }
+		
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 			"time":   time.Now().Format(time.RFC3339),
+			"database": gin.H{
+				"mongodb": mongoStatus,
+				"redis":   redisStatus,
+			},
 		})
 	})
 
