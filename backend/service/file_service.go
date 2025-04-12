@@ -277,8 +277,30 @@ func (s *FileService) DeleteFile(userID string, filePath string) error {
 	return nil
 }
 
-// GetImageDimensions 获取图片尺寸（为兼容旧代码保留的方法）
+// GetImageDimensions 获取图片尺寸的便捷方法
 func (s *FileService) GetImageDimensions(filePath string) (int, int, error) {
-	// 调用新的通用方法
-	return s.GetFileDimensions(s.objectStorageService.GetFileURL(filePath))
+	// 获取文件URL
+	fileURL := s.objectStorageService.GetFileURL(filePath)
+	return s.GetFileDimensions(fileURL)
+}
+
+// GetFileContent 获取文件内容
+func (s *FileService) GetFileContent(filePath string) ([]byte, error) {
+	// 获取文件URL
+	fileURL := s.objectStorageService.GetFileURL(filePath)
+	
+	// 如果是本地文件
+	if strings.HasPrefix(fileURL, "/uploads/") {
+		localPath := "." + fileURL
+		return os.ReadFile(localPath)
+	}
+	
+	// 如果是远程文件
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return nil, fmt.Errorf("获取远程文件失败: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	return io.ReadAll(resp.Body)
 } 

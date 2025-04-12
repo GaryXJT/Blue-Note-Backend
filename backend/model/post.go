@@ -11,7 +11,7 @@ type Post struct {
 	Title     string            `bson:"title" json:"title"`
 	Content   string            `bson:"content" json:"content"`
 	Type      string            `bson:"type" json:"type"` // image/video
-	Tags      []string          `bson:"tags" json:"tags"`
+	Tags       []string `json:"tags" binding:"required,dive,oneof=穿搭 美食 彩妆 影视 职场 情感 家居 游戏 旅行 风景 健身 其他"`
 	Files     []string          `bson:"files" json:"files"`
 	CoverImage string            `bson:"cover_image" json:"coverImage"` // 封面图片
 	Status    string            `bson:"status" json:"status"` // draft/pending/approved/rejected
@@ -29,7 +29,7 @@ type CreatePostRequest struct {
 	Title      string   `json:"title" binding:"required,max=100"`
 	Content    string   `json:"content" binding:"required"`
 	Type       string   `json:"type" binding:"required,oneof=image video"`
-	Tags       []string `json:"tags" binding:"required"`
+	Tags       []string `json:"tags" binding:"required,dive,oneof=穿搭 美食 彩妆 影视 职场 情感 家居 游戏 旅行 风景 健身 其他"`
 	Files      []string `json:"files" binding:"required"`
 	CoverImage string   `json:"coverImage"` // 封面图片
 	IsDraft    bool     `json:"isDraft"`
@@ -38,7 +38,7 @@ type CreatePostRequest struct {
 type UpdatePostRequest struct {
 	Title      string   `json:"title" binding:"omitempty,max=100"`
 	Content    string   `json:"content" binding:"omitempty"`
-	Tags       []string `json:"tags" binding:"omitempty"`
+	Tags       []string `json:"tags" binding:"omitempty,dive,oneof=穿搭 美食 彩妆 影视 职场 情感 家居 游戏 旅行 风景 健身 其他"`
 	Files      []string `json:"files" binding:"omitempty"`
 	CoverImage string   `json:"coverImage"` // 封面图片
 	IsDraft    bool     `json:"isDraft"`

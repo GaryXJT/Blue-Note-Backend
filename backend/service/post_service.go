@@ -3,12 +3,21 @@ package service
 import (
 	"blue-note/model"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,8 +29,224 @@ type PostService struct {
 	fileService *FileService
 }
 
+// 星火API的配置
+var (
+	hostUrl   = "wss://spark-api.cn-huabei-1.xf-yun.com/v2.1/image"
+	appid     = "d27a2420"
+	apiKey    = "bf31b89875fb809c98c545d7237e8fda"
+	apiSecret = "ZmExZDE3YzYzNWE0MTc0YzRhNjIwZGY4"
+)
+
+// Message 定义与星火API通信的消息结构
+type Message struct {
+	Role        string `json:"role"`
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
+}
+
 func NewPostService(db *mongo.Database, fileService *FileService) *PostService {
 	return &PostService{db: db, fileService: fileService}
+}
+
+// analyzeTags 使用星火API分析帖子标签
+func (s *PostService) analyzeTags(title, content, imageFile string) ([]string, error) {
+	// 创建WebSocket连接
+	d := websocket.Dialer{
+		HandshakeTimeout: 5 * time.Second,
+	}
+	conn, resp, err := d.Dial(s.assembleAuthUrl(hostUrl, apiKey, apiSecret), nil)
+	if err != nil {
+		log.Printf("连接星火API失败: %s, %v", s.readResp(resp), err)
+		return nil, err
+	} else if resp.StatusCode != 101 {
+		log.Printf("WebSocket握手失败: %s", s.readResp(resp))
+		return nil, fmt.Errorf("websocket握手失败: %d", resp.StatusCode)
+	}
+	defer conn.Close()
+
+	// 获取图片内容
+	var imageBase64 string
+	if imageFile != "" {
+		// 这里假设fileService有一个方法可以获取文件内容
+		imageData, err := s.fileService.GetFileContent(imageFile)
+		if err != nil {
+			log.Printf("获取图片内容失败: %v", err)
+			// 如果获取图片失败，我们可以继续只使用文本分析
+		} else {
+			imageBase64 = base64.StdEncoding.EncodeToString(imageData)
+		}
+	}
+
+	// 创建融合的帖子内容和提示词
+	prompt := "请分析这篇帖子属于哪些类别，以JSON数组格式返回一到三个最合适的标签，例如[\"旅行\",\"风景\"]。标签范围限定在：穿搭、美食、彩妆、影视、职场、情感、家居、游戏、旅行、风景、健身"
+	combinedContent := fmt.Sprintf("标题：%s\n\n正文：%s\n\n%s", title, content, prompt)
+
+	// 创建消息序列
+	var messages []Message
+	
+	// 如果有图片，添加图片消息
+	if imageBase64 != "" {
+		messages = append(messages, Message{
+			Role:        "user",
+			Content:     imageBase64,
+			ContentType: "image",
+		})
+	}
+	
+	// 添加文本消息
+	messages = append(messages, Message{
+		Role:        "user",
+		Content:     combinedContent,
+		ContentType: "text",
+	})
+
+	// 发送请求到星火API
+	data := map[string]interface{}{
+		"header": map[string]interface{}{
+			"app_id": appid,
+		},
+		"parameter": map[string]interface{}{
+			"chat": map[string]interface{}{
+				"domain":      "imagev3",
+				"temperature": 0.5,
+				"top_k":       4,
+				"max_tokens":  2048,
+			},
+		},
+		"payload": map[string]interface{}{
+			"message": map[string]interface{}{
+				"text": messages,
+			},
+		},
+	}
+	
+	err = conn.WriteJSON(data)
+	if err != nil {
+		log.Printf("发送请求失败: %v", err)
+		return nil, err
+	}
+
+	// 获取API响应
+	var answer = ""
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("读取消息错误: %v", err)
+			break
+		}
+
+		var data map[string]interface{}
+		err = json.Unmarshal(msg, &data)
+		if err != nil {
+			log.Printf("解析JSON错误: %v", err)
+			return nil, err
+		}
+		
+		// 解析数据
+		header := data["header"].(map[string]interface{})
+		code := header["code"].(float64)
+
+		if code != 0 {
+			log.Printf("请求错误: %v", data["payload"])
+			return nil, fmt.Errorf("API请求错误: %v", data["payload"])
+		}
+
+		payload := data["payload"].(map[string]interface{})
+		choices := payload["choices"].(map[string]interface{})
+		status := choices["status"].(float64)
+		
+		text := choices["text"].([]interface{})
+		content := text[0].(map[string]interface{})["content"].(string)
+		
+		if status != 2 {
+			answer += content
+		} else {
+			answer += content
+			log.Println("收到最终结果")
+			break
+		}
+	}
+
+	// 尝试解析返回的标签数组
+	var tags []string
+	if strings.Contains(answer, "[") && strings.Contains(answer, "]") {
+		// 提取JSON数组部分
+		start := strings.Index(answer, "[")
+		end := strings.LastIndex(answer, "]") + 1
+		if start >= 0 && end > start {
+			jsonStr := answer[start:end]
+			// 尝试解析JSON数组
+			err := json.Unmarshal([]byte(jsonStr), &tags)
+			if err != nil {
+				log.Printf("解析标签数组失败: %v", err)
+				return nil, err
+			}
+		}
+	}
+
+	// 验证标签是否在允许的范围内
+	var validTags []string
+	// 失败时使用默认标签：“其他”
+	allowedTags := []string{"穿搭", "美食", "彩妆", "影视", "职场", "情感", "家居", "游戏", "旅行", "风景", "健身"}
+	
+	for _, tag := range tags {
+		for _, allowedTag := range allowedTags {
+			if tag == allowedTag {
+				validTags = append(validTags, tag)
+				break
+			}
+		}
+	}
+
+	return validTags, nil
+}
+
+// 创建鉴权url
+func (s *PostService) assembleAuthUrl(hosturl string, apiKey, apiSecret string) string {
+	ul, err := url.Parse(hosturl)
+	if err != nil {
+		fmt.Println(err)
+	}
+	//签名时间
+	date := time.Now().UTC().Format(time.RFC1123)
+	//参与签名的字段 host ,date, request-line
+	signString := []string{"host: " + ul.Host, "date: " + date, "GET " + ul.Path + " HTTP/1.1"}
+	//拼接签名字符串
+	sgin := strings.Join(signString, "\n")
+	//签名结果
+	sha := s.HmacWithShaTobase64("hmac-sha256", sgin, apiSecret)
+	//构建请求参数 此时不需要urlencoding
+	authUrl := fmt.Sprintf("hmac username=\"%s\", algorithm=\"%s\", headers=\"%s\", signature=\"%s\"", apiKey,
+		"hmac-sha256", "host date request-line", sha)
+	//将请求参数使用base64编码
+	authorization := base64.StdEncoding.EncodeToString([]byte(authUrl))
+
+	v := url.Values{}
+	v.Add("host", ul.Host)
+	v.Add("date", date)
+	v.Add("authorization", authorization)
+	//将编码后的字符串url encode后添加到url后面
+	callurl := hosturl + "?" + v.Encode()
+	return callurl
+}
+
+func (s *PostService) HmacWithShaTobase64(algorithm, data, key string) string {
+	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write([]byte(data))
+	encodeData := mac.Sum(nil)
+	return base64.StdEncoding.EncodeToString(encodeData)
+}
+
+func (s *PostService) readResp(resp *http.Response) string {
+	if resp == nil {
+		return ""
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("读取响应失败: %v", err)
+		return ""
+	}
+	return fmt.Sprintf("code=%d,body=%s", resp.StatusCode, string(b))
 }
 
 func (s *PostService) CreatePost(user *model.User, req *model.CreatePostRequest) (*model.Post, error) {
@@ -46,6 +271,38 @@ func (s *PostService) CreatePost(user *model.User, req *model.CreatePostRequest)
 	// 只为图文帖子自动设置封面图片
 	if post.Type == "image" && post.CoverImage == "" && len(post.Files) > 0 {
 		post.CoverImage = post.Files[0]
+	}
+
+	// 自动分析标签（如果tags为空）
+	if len(post.Tags) == 0 {
+		// 确定要分析的图片
+		var imageToAnalyze string
+		if post.Type == "video" {
+			imageToAnalyze = post.CoverImage
+		} else if post.Type == "image" && len(post.Files) > 0 {
+			imageToAnalyze = post.Files[0]
+		}
+		
+		// 调用API分析标签
+		tags, err := s.analyzeTags(post.Title, post.Content, imageToAnalyze)
+		if err != nil {
+			log.Printf("分析标签失败: %v", err)
+			// 失败时使用默认标签，不影响创建帖子
+			if post.Type == "image" {
+				post.Tags = []string{"其他"}
+			} else {
+				post.Tags = []string{"影视"}
+			}
+		} else if len(tags) > 0 {
+			post.Tags = tags
+		} else {
+			// API返回的标签数组为空时使用默认标签
+			if post.Type == "image" {
+				post.Tags = []string{"其他"}
+			} else {
+				post.Tags = []string{"影视"}
+			}
+		}
 	}
 
 	if req.IsDraft {
