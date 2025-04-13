@@ -104,11 +104,11 @@ func main() {
 
 	// 设置路由
 	r := router.SetupRouter(
-		authController, 
-		profileController, 
-		postController, 
-		adminController, 
-		uploadController, 
+		authController,
+		profileController,
+		postController,
+		adminController,
+		uploadController,
 		fileController,
 		mongoClient,
 	)

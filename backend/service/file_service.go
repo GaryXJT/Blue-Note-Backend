@@ -25,14 +25,14 @@ import (
 
 // FileService 文件服务
 type FileService struct {
-	db                  *mongo.Database
+	db                   *mongo.Database
 	objectStorageService *ObjectStorageService
 }
 
 // NewFileService 创建文件服务实例
 func NewFileService(db *mongo.Database, objectStorageService *ObjectStorageService) *FileService {
 	return &FileService{
-		db:                  db,
+		db:                   db,
 		objectStorageService: objectStorageService,
 	}
 }
@@ -44,15 +44,15 @@ func (s *FileService) MarkTemporary(userID string, filePath string, fileSize int
 	if err != nil {
 		return fmt.Errorf("无效的用户ID: %w", err)
 	}
-	
+
 	now := time.Now()
-	
+
 	// 获取文件URL
 	fileURL := s.objectStorageService.GetFileURL(filePath)
-	
+
 	// 获取文件类型和大小
 	var fileType string
-	
+
 	// 如果传入了类型提示，优先使用
 	if fileTypeHint != "" {
 		fileType = fileTypeHint
@@ -67,7 +67,7 @@ func (s *FileService) MarkTemporary(userID string, filePath string, fileSize int
 			fileType = "unknown"
 		}
 	}
-	
+
 	// 获取文件宽高
 	width, height := 0, 0
 	if fileType == "image" || fileType == "video" {
@@ -78,7 +78,7 @@ func (s *FileService) MarkTemporary(userID string, filePath string, fileSize int
 			log.Printf("获取文件尺寸失败: %v", err)
 		}
 	}
-	
+
 	fileRecord := model.FileRecord{
 		FilePath:  filePath,
 		URL:       fileURL,
@@ -91,12 +91,12 @@ func (s *FileService) MarkTemporary(userID string, filePath string, fileSize int
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	
+
 	_, err = s.db.Collection("file_records").InsertOne(context.Background(), fileRecord)
 	if err != nil {
 		return fmt.Errorf("创建文件记录失败: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -108,18 +108,18 @@ func (s *FileService) GetFileDimensions(fileURL string) (int, int, error) {
 		context.Background(),
 		bson.M{"url": fileURL},
 	).Decode(&fileRecord)
-	
+
 	if err == nil && fileRecord.Width > 0 && fileRecord.Height > 0 {
 		// 如果数据库中有记录并且包含尺寸信息，直接返回
 		return fileRecord.Width, fileRecord.Height, nil
 	}
-	
+
 	// 尝试从本地文件获取尺寸
 	if strings.HasPrefix(fileURL, "/uploads/") {
 		localPath := "." + fileURL
 		return s.getLocalFileDimensions(localPath)
 	}
-	
+
 	// 尝试从远程URL获取尺寸
 	return s.getRemoteFileDimensions(fileURL)
 }
@@ -131,10 +131,10 @@ func (s *FileService) getLocalFileDimensions(filePath string) (int, int, error) 
 		return 0, 0, fmt.Errorf("打开文件失败: %w", err)
 	}
 	defer file.Close()
-	
+
 	// 检查文件类型
 	fileExt := strings.ToLower(filepath.Ext(filePath))
-	
+
 	// 图片处理
 	if fileExt == ".jpg" || fileExt == ".jpeg" || fileExt == ".png" || fileExt == ".gif" || fileExt == ".webp" {
 		img, _, err := image.DecodeConfig(file)
@@ -143,13 +143,13 @@ func (s *FileService) getLocalFileDimensions(filePath string) (int, int, error) 
 		}
 		return img.Width, img.Height, nil
 	}
-	
+
 	// 视频处理 - 简化方式，实际项目应该使用ffprobe等工具
 	// 这里仅返回默认值，实际项目中需要实现视频尺寸的提取
 	if fileExt == ".mp4" || fileExt == ".webm" || fileExt == ".mov" || fileExt == ".avi" {
 		return 1280, 720, nil
 	}
-	
+
 	return 0, 0, fmt.Errorf("不支持的文件类型: %s", fileExt)
 }
 
@@ -161,16 +161,16 @@ func (s *FileService) getRemoteFileDimensions(fileURL string) (int, int, error) 
 		return 0, 0, fmt.Errorf("请求文件失败: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// 读取头部数据以检测类型
 	buffer := make([]byte, 512)
 	n, err := resp.Body.Read(buffer)
 	if err != nil && err != io.EOF {
 		return 0, 0, fmt.Errorf("读取文件头失败: %w", err)
 	}
-	
+
 	contentType := http.DetectContentType(buffer[:n])
-	
+
 	// 如果是图片，尝试解析尺寸
 	if strings.HasPrefix(contentType, "image/") {
 		// 读取剩余数据
@@ -178,25 +178,25 @@ func (s *FileService) getRemoteFileDimensions(fileURL string) (int, int, error) 
 		if err != nil {
 			return 0, 0, fmt.Errorf("读取图片数据失败: %w", err)
 		}
-		
+
 		// 合并数据
 		fullData := append(buffer[:n], restData...)
-		
+
 		// 使用image.DecodeConfig从图片数据中提取宽高信息
 		// 这只会解析图片的头部元数据，不会加载整个图片
 		img, _, err := image.DecodeConfig(bytes.NewReader(fullData))
 		if err != nil {
 			return 0, 0, fmt.Errorf("解析图片配置失败: %w", err)
 		}
-		
+
 		return img.Width, img.Height, nil
 	}
-	
+
 	// 视频处理 - 简化方式
 	if strings.HasPrefix(contentType, "video/") {
 		return 1280, 720, nil
 	}
-	
+
 	return 0, 0, fmt.Errorf("不支持的文件类型: %s", contentType)
 }
 
@@ -206,7 +206,7 @@ func (s *FileService) MarkUsed(filePaths []string) error {
 	if len(filePaths) == 0 {
 		return nil
 	}
-	
+
 	now := time.Now()
 	_, err := s.db.Collection("file_records").UpdateMany(
 		context.Background(),
@@ -219,11 +219,11 @@ func (s *FileService) MarkUsed(filePaths []string) error {
 			},
 		},
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("更新文件状态失败: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -234,7 +234,7 @@ func (s *FileService) DeleteFile(userID string, filePath string) error {
 	if err != nil {
 		return fmt.Errorf("无效的用户ID: %w", err)
 	}
-	
+
 	// 检查文件所有权
 	var fileRecord model.FileRecord
 	err = s.db.Collection("file_records").FindOne(
@@ -244,20 +244,20 @@ func (s *FileService) DeleteFile(userID string, filePath string) error {
 			"user_id":   userObjID,
 		},
 	).Decode(&fileRecord)
-	
+
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return fmt.Errorf("文件不存在或无权限删除")
 		}
 		return fmt.Errorf("查询文件记录失败: %w", err)
 	}
-	
+
 	// 从对象存储中删除文件
 	err = s.objectStorageService.DeleteFile(filePath)
 	if err != nil {
 		log.Printf("从对象存储删除文件失败: %v", err)
 	}
-	
+
 	// 更新文件状态为已删除
 	_, err = s.db.Collection("file_records").UpdateOne(
 		context.Background(),
@@ -269,11 +269,11 @@ func (s *FileService) DeleteFile(userID string, filePath string) error {
 			},
 		},
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("更新文件状态失败: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -286,21 +286,87 @@ func (s *FileService) GetImageDimensions(filePath string) (int, int, error) {
 
 // GetFileContent 获取文件内容
 func (s *FileService) GetFileContent(filePath string) ([]byte, error) {
+	// 检查传入参数
+	log.Printf("GetFileContent - 原始文件路径: %s", filePath)
+
+	// 检查存储服务是否可用
+	if s.objectStorageService == nil {
+		log.Printf("GetFileContent - objectStorageService为空，尝试直接读取本地文件")
+
+		// 尝试直接读取本地文件
+		localPath := filePath
+		if !strings.HasPrefix(localPath, "./") && !strings.HasPrefix(localPath, "/") {
+			localPath = "./" + localPath
+		} else if strings.HasPrefix(localPath, "/") {
+			localPath = "." + localPath
+		}
+
+		log.Printf("GetFileContent - 尝试读取本地文件: %s", localPath)
+		if _, err := os.Stat(localPath); os.IsNotExist(err) {
+			log.Printf("GetFileContent - 本地文件不存在: %s", localPath)
+			return nil, fmt.Errorf("本地文件不存在: %s", localPath)
+		}
+
+		data, err := os.ReadFile(localPath)
+		if err != nil {
+			log.Printf("GetFileContent - 读取本地文件失败: %v", err)
+			return nil, err
+		}
+
+		log.Printf("GetFileContent - 成功读取本地文件，大小: %d bytes", len(data))
+		return data, nil
+	}
+
 	// 获取文件URL
 	fileURL := s.objectStorageService.GetFileURL(filePath)
-	
-	// 如果是本地文件
-	if strings.HasPrefix(fileURL, "/uploads/") {
+	log.Printf("GetFileContent - 文件URL: %s", fileURL)
+
+	// 检查是否是本地文件（以/uploads开头）
+	if strings.HasPrefix(fileURL, "/uploads") {
 		localPath := "." + fileURL
-		return os.ReadFile(localPath)
+		log.Printf("GetFileContent - 读取本地文件: %s", localPath)
+
+		// 检查文件是否存在
+		if _, err := os.Stat(localPath); os.IsNotExist(err) {
+			log.Printf("GetFileContent - 本地文件不存在: %s", localPath)
+			return nil, fmt.Errorf("本地文件不存在: %s", localPath)
+		}
+
+		data, err := os.ReadFile(localPath)
+		if err != nil {
+			log.Printf("GetFileContent - 读取本地文件失败: %v", err)
+			return nil, err
+		}
+
+		log.Printf("GetFileContent - 成功读取本地文件，大小: %d bytes", len(data))
+		return data, nil
 	}
-	
-	// 如果是远程文件
+
+	// 远程文件处理
+	log.Printf("GetFileContent - 读取远程文件: %s", fileURL)
 	resp, err := http.Get(fileURL)
 	if err != nil {
+		log.Printf("GetFileContent - 获取远程文件失败: %v", err)
 		return nil, fmt.Errorf("获取远程文件失败: %w", err)
 	}
 	defer resp.Body.Close()
-	
-	return io.ReadAll(resp.Body)
-} 
+
+	// 检查响应状态码
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("GetFileContent - 远程文件响应错误: 状态码 %d", resp.StatusCode)
+		return nil, fmt.Errorf("远程文件响应错误: 状态码 %d", resp.StatusCode)
+	}
+
+	// 检查Content-Type
+	contentType := resp.Header.Get("Content-Type")
+	log.Printf("GetFileContent - 文件Content-Type: %s", contentType)
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("GetFileContent - 读取响应内容失败: %v", err)
+		return nil, fmt.Errorf("读取响应内容失败: %w", err)
+	}
+
+	log.Printf("GetFileContent - 成功读取远程文件，大小: %d bytes", len(data))
+	return data, nil
+}
