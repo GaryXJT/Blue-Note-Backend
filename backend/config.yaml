@@ -7,7 +7,7 @@ redis:
 
 jwt:
   secret: blue-note-jwt-secret-key
-  expire: 24  # 小时
+  expire: 168 # 小时
 
 server:
   port: 8080
@@ -19,4 +19,4 @@ objectstorage:
   accesskey: h49hpg7e
   secretkey: p4j8pq9ctnbhshpj
   bucketname: blue-note
-  usessl: false 
+  usessl: false

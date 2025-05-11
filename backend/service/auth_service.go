@@ -93,6 +93,11 @@ func (s *AuthService) LoginOrRegister(req *model.LoginRequest) (*model.User, str
 	} else if err != nil {
 		return nil, "", time.Time{}, false, errors.New("用户查询失败")
 	}
+
+	// 检查用户是否已被删除
+	if user.Status == "deleted" {
+		return nil, "", time.Time{}, false, errors.New("该账号已被注销")
+	}
 	
 	// 用户存在，验证密码（登录）
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))

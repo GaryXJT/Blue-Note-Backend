@@ -25,8 +25,8 @@ type User struct {
 	LikeCount    int                `bson:"like_count" json:"like_count"`
 	CollectCount int                `bson:"collect_count" json:"collect_count"`
 	PostCount    int                `bson:"post_count" json:"post_count"`
-	CreatedAt    time.Time          `bson:"created_at" json:"createdAt"`
-	UpdatedAt    time.Time          `bson:"updated_at" json:"updatedAt"`
+	CreatedAt    time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt    time.Time          `bson:"updated_at" json:"updated_at"`
 }
 
 // ProfileResponse 用户资料响应
@@ -76,6 +76,9 @@ type UserListItem struct {
 	Avatar      string `json:"avatar"`
 	Bio         string `json:"bio"`
 	IsFollowing bool   `json:"isFollowing"`
+	Status    string    `json:"status"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // UserListResponse 用户列表响应

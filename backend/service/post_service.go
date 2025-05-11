@@ -423,9 +423,6 @@ func (s *PostService) CreatePost(user *model.User, req *model.CreatePostRequest)
 		log.Printf("开始为帖子自动分析标签")
 		// 调用API分析标签
 		tags, err := s.analyzeTags(post.Title, post.Content, imageToAnalyze)
-		log.Printf("11111111111111111111")
-		log.Printf("11111111111111111111")
-		log.Printf("11111111111111111111")
 		if err != nil {
 			log.Printf("分析标签失败: %v，将使用默认标签", err)
 			// 失败时使用默认标签，不影响创建帖子
@@ -440,6 +437,7 @@ func (s *PostService) CreatePost(user *model.User, req *model.CreatePostRequest)
 		}
 	}
 
+	// 如果是草稿，则设置状态为草稿
 	if req.IsDraft {
 		post.Status = "draft"
 	}
@@ -461,9 +459,35 @@ func (s *PostService) CreatePost(user *model.User, req *model.CreatePostRequest)
 		}()
 	}
 
+	// 发送通知
+	if !req.IsDraft {
+		// 如果不是草稿，发送提交审核通知
+		tagStr := ""
+		if len(post.Tags) > 0 {
+			tagStr = "，标签：" + strings.Join(post.Tags, "、")
+		}
+		
+		notification := &model.CreateNotificationRequest{
+			Type:        model.NotificationTypeSystem,
+			Title:       "帖子已提交审核",
+			Content:     fmt.Sprintf("您的帖子《%s》已提交审核%s。审核通过后将对其他用户可见。", post.Title, tagStr),
+			RelatedID:   post.ID.Hex(),
+			RelatedType: "post",
+		}
+
+		// 获取通知服务
+		notificationService := NewNotificationService(s.db)
+		_, err = notificationService.CreateNotification(user.ID.Hex(), notification)
+		if err != nil {
+			log.Printf("创建帖子提交审核通知失败: %v", err)
+			// 不影响创建帖子功能，继续执行
+		}
+	}
+
 	return post, nil
 }
 
+// GetPostList 获取帖子列表
 func (s *PostService) GetPostList(query *model.PostQuery) (*model.PostListResponse, error) {
 	// 设置默认值
 	if query.Page < 1 {
@@ -472,24 +496,62 @@ func (s *PostService) GetPostList(query *model.PostQuery) (*model.PostListRespon
 	if query.Limit < 1 {
 		query.Limit = 10
 	}
+	skip := (query.Page - 1) * query.Limit
 
 	// 构建查询条件
 	filter := bson.M{}
+	
+
+	// 如果提供了userId，则只查询该用户的帖子
+	if query.UserID != "" {
+		userObjID, err := primitive.ObjectIDFromHex(query.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("无效的用户ID: %w", err)
+		}
+		filter["user_id"] = userObjID
+	}
+
+	// 添加类型过滤
 	if query.Type != "" {
 		filter["type"] = query.Type
 	}
+
+	// 添加标签过滤
 	if query.Tag != "" {
 		filter["tags"] = query.Tag
 	}
+
+	// 添加状态过滤（如果指定了状态）
 	if query.Status != "" {
 		filter["status"] = query.Status
 	}
-	if query.UserID != "" {
-		userID, err := primitive.ObjectIDFromHex(query.UserID)
-		if err != nil {
-			return nil, err
+
+	// 添加搜索条件
+	if query.Search != "" {
+		switch query.SearchType {
+		case "author":
+			// 搜索发帖人
+			filter["$or"] = []bson.M{
+				{"username": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"nickname": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
+		case "content":
+			// 搜索帖子内容
+			filter["$or"] = []bson.M{
+				{"title": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"content": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"tags": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
+		default:
+			// 搜索所有
+			filter["$or"] = []bson.M{
+				{"title": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"content": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"tags": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"username": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"nickname": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
 		}
-		filter["user_id"] = userID
 	}
 
 	// 获取总数
@@ -500,9 +562,9 @@ func (s *PostService) GetPostList(query *model.PostQuery) (*model.PostListRespon
 
 	// 查询数据
 	opts := options.Find().
-		SetSkip(int64((query.Page - 1) * query.Limit)).
-		SetLimit(int64(query.Limit)).
-		SetSort(bson.D{{"created_at", -1}})
+		SetSort(bson.M{"created_at": -1}).
+		SetSkip(int64(skip)).
+		SetLimit(int64(query.Limit))
 
 	cursor, err := s.db.Collection("posts").Find(context.Background(), filter, opts)
 	if err != nil {
@@ -510,30 +572,35 @@ func (s *PostService) GetPostList(query *model.PostQuery) (*model.PostListRespon
 	}
 	defer cursor.Close(context.Background())
 
-	var posts []*model.Post
+	var posts []model.Post
 	if err = cursor.All(context.Background(), &posts); err != nil {
 		return nil, err
 	}
 
-	var postItems []model.PostListItem
+	// 转换为响应格式
+	postItems := make([]model.PostListItem, 0, len(posts))
 	for _, post := range posts {
 		item := model.PostListItem{
-			ID:         post.ID,
-			PostID:     post.ID.Hex(),
-			Title:      post.Title,
-			Content:    post.Content,
-			Type:       post.Type,
-			Tags:       post.Tags,
-			Files:      post.Files,
-			CoverImage: post.CoverImage,
-			UserID:     post.UserID,
-			Username:   post.Username,
-			Nickname:   post.Nickname,
-			Avatar:     post.Avatar,
-			Likes:      post.Likes,
-			Comments:   post.Comments,
-			CreatedAt:  post.CreatedAt,
-			UpdatedAt:  post.UpdatedAt,
+			ID:           post.ID,
+			PostID:       post.ID.Hex(),
+			Title:        post.Title,
+			Content:      post.Content,
+			Type:         post.Type,
+			Tags:         post.Tags,
+			Files:        post.Files,
+			CoverImage:   post.CoverImage,
+			UserID:       post.UserID,
+			Username:     post.Username,
+			Nickname:     post.Nickname,
+			Avatar:       post.Avatar,
+			Likes:        post.Likes,
+			Comments:     post.Comments,
+			LikeCount:    post.Likes,
+			CommentCount: post.Comments,
+			CollectCount: 0, // TODO: 从数据库获取收藏数
+			CreatedAt:    post.CreatedAt,
+			UpdatedAt:    post.UpdatedAt,
+			Status:       post.Status,
 		}
 
 		// 如果 CoverImage 为空，则使用第一张图片作为封面
@@ -632,7 +699,65 @@ func (s *PostService) UpdatePost(postID string, userID string, req *model.Update
 		return nil, err
 	}
 
-	return s.GetPostDetail(postID)
+	// 获取更新后的帖子
+	updatedPost, err := s.GetPostDetail(postID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 发送通知
+	if !req.IsDraft {
+		// 获取更新内容
+		var updatedFields []string
+		if req.Title != "" {
+			updatedFields = append(updatedFields, "标题")
+		}
+		if req.Content != "" {
+			updatedFields = append(updatedFields, "内容")
+		}
+		if req.Tags != nil {
+			updatedFields = append(updatedFields, "标签")
+		}
+		if req.Files != nil {
+			updatedFields = append(updatedFields, "媒体文件")
+		}
+		if req.CoverImage != "" {
+			updatedFields = append(updatedFields, "封面图片")
+		}
+
+		updateInfo := ""
+		if len(updatedFields) > 0 {
+			updateInfo = fmt.Sprintf("已更新：%s。", strings.Join(updatedFields, "、"))
+		}
+
+		// 如果帖子状态从approved变为pending，说明是编辑已通过的帖子，需要重新审核
+		var title, content string
+		if post.Status == "approved" && updatedPost.Status == "pending" {
+			title = "帖子已重新提交审核"
+			content = fmt.Sprintf("您的帖子《%s》已更新并重新提交审核。%s审核通过后更新内容将对其他用户可见。", updatedPost.Title, updateInfo)
+		} else {
+			title = "帖子已更新"
+			content = fmt.Sprintf("您的帖子《%s》已更新。%s审核通过后将对其他用户可见。", updatedPost.Title, updateInfo)
+		}
+
+		notification := &model.CreateNotificationRequest{
+			Type:        model.NotificationTypeSystem,
+			Title:       title,
+			Content:     content,
+			RelatedID:   postID,
+			RelatedType: "post",
+		}
+
+		// 获取通知服务
+		notificationService := NewNotificationService(s.db)
+		_, err = notificationService.CreateNotification(userID, notification)
+		if err != nil {
+			log.Printf("创建帖子更新通知失败: %v", err)
+			// 不影响帖子更新功能，继续执行
+		}
+	}
+
+	return updatedPost, nil
 }
 
 func (s *PostService) DeletePost(postID string, userID string) error {
@@ -699,6 +824,13 @@ func (s *PostService) ReviewPost(postID string, req *model.ReviewPostRequest) er
 		return err
 	}
 
+	// 获取帖子信息
+	var post model.Post
+	err = s.db.Collection("posts").FindOne(context.Background(), bson.M{"_id": objectID}).Decode(&post)
+	if err != nil {
+		return err
+	}
+
 	update := bson.M{
 		"status":     req.Status,
 		"updated_at": time.Now(),
@@ -713,10 +845,40 @@ func (s *PostService) ReviewPost(postID string, req *model.ReviewPostRequest) er
 		bson.M{"_id": objectID},
 		bson.M{"$set": update},
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 创建审核通知
+	var title, content string
+	if req.Status == "approved" {
+		title = "帖子审核通过"
+		content = fmt.Sprintf("你的帖子《%s》已通过审核", post.Title)
+	} else {
+		title = "帖子审核未通过"
+		content = fmt.Sprintf("你的帖子《%s》未通过审核，原因：%s", post.Title, req.Reason)
+	}
+
+	notification := &model.CreateNotificationRequest{
+		Type:        model.NotificationTypeSystem,
+		Title:       title,
+		Content:     content,
+		RelatedID:   postID,
+		RelatedType: "post",
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(post.UserID.Hex(), notification)
+	if err != nil {
+		log.Printf("创建审核通知失败: %v", err)
+		// 不影响审核功能，继续执行
+	}
+
+	return nil
 }
 
-// 点赞帖子
+// LikePost 点赞帖子
 func (s *PostService) LikePost(postID string, userID string) error {
 	postObjectID, err := primitive.ObjectIDFromHex(postID)
 	if err != nil {
@@ -747,15 +909,33 @@ func (s *PostService) LikePost(postID string, userID string) error {
 		return err
 	}
 
+	now := time.Now()
 	if count > 0 {
-		return errors.New("已经点赞过此帖子")
+		// 如果已经点赞，更新UpdatedAt字段
+		_, err = s.db.Collection("post_likes").UpdateOne(
+			context.Background(),
+			bson.M{
+				"post_id": postObjectID,
+				"user_id": userObjectID,
+			},
+			bson.M{
+				"$set": bson.M{
+					"updated_at": now,
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// 创建点赞记录
 	like := &model.PostLike{
 		PostID:    postObjectID,
 		UserID:    userObjectID,
-		CreatedAt: time.Now(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	_, err = s.db.Collection("post_likes").InsertOne(context.Background(), like)
@@ -769,10 +949,34 @@ func (s *PostService) LikePost(postID string, userID string) error {
 		bson.M{"_id": postObjectID},
 		bson.M{"$inc": bson.M{"likes": 1}},
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 创建点赞通知
+	notification := &model.CreateNotificationRequest{
+		Type:        model.NotificationTypeLike,
+		Title:       "收到新的点赞",
+		Content:     fmt.Sprintf("%s 点赞了你的帖子《%s》", post.Username, post.Title),
+		RelatedID:   postID,
+		RelatedType: "post",
+		SenderID:    userID,
+		SenderName:  post.Username,
+		SenderAvatar: post.Avatar,
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(post.UserID.Hex(), notification)
+	if err != nil {
+		log.Printf("创建点赞通知失败: %v", err)
+		// 不影响点赞功能，继续执行
+	}
+
+	return nil
 }
 
-// 取消点赞
+// UnlikePost 取消点赞
 func (s *PostService) UnlikePost(postID string, userID string) error {
 	postObjectID, err := primitive.ObjectIDFromHex(postID)
 	if err != nil {
@@ -821,7 +1025,7 @@ func (s *PostService) UnlikePost(postID string, userID string) error {
 	return err
 }
 
-// 检查用户是否已点赞
+// CheckLiked 检查用户是否已点赞
 func (s *PostService) HasLiked(postID string, userID string) (bool, error) {
 	postObjectID, err := primitive.ObjectIDFromHex(postID)
 	if err != nil {
@@ -847,7 +1051,7 @@ func (s *PostService) HasLiked(postID string, userID string) (bool, error) {
 	return count > 0, nil
 }
 
-// 计算评论的综合评分
+// CalculateCommentScore 计算评论的综合评分
 func (s *PostService) calculateCommentScore(comment *model.Comment) float64 {
 	// 时间衰减因子 (使用改进的对数衰减)
 	// 使用 24 小时作为基准时间，让新评论在 24 小时内保持较高权重
@@ -884,7 +1088,7 @@ func (s *PostService) calculateCommentScore(comment *model.Comment) float64 {
 	return totalScore
 }
 
-// 更新评论评分
+// UpdateCommentScore 更新评论评分
 func (s *PostService) updateCommentScore(comment *model.Comment) error {
 	comment.Score = s.calculateCommentScore(comment)
 	comment.UpdatedAt = time.Now()
@@ -902,7 +1106,7 @@ func (s *PostService) updateCommentScore(comment *model.Comment) error {
 	return err
 }
 
-// 获取帖子评论列表（带排序）
+// GetPostComments 获取帖子评论列表（带排序）
 func (s *PostService) GetPostComments(postID primitive.ObjectID, query *model.CommentQuery) ([]model.Comment, int64, error) {
 	// 设置默认值
 	if query.Page < 1 {
@@ -960,7 +1164,7 @@ func (s *PostService) GetPostComments(postID primitive.ObjectID, query *model.Co
 	return comments, total, nil
 }
 
-// 获取排序顺序
+// GetSortOrder 获取排序顺序
 func getSortOrder(order string) int {
 	if order == "asc" {
 		return 1
@@ -968,7 +1172,7 @@ func getSortOrder(order string) int {
 	return -1
 }
 
-// 创建评论
+// CreateComment 创建评论
 func (s *PostService) CreateComment(postID primitive.ObjectID, userID primitive.ObjectID, content string) (*model.Comment, error) {
 	// 获取帖子信息
 	post, err := s.GetPostDetail(postID.Hex())
@@ -1009,10 +1213,30 @@ func (s *PostService) CreateComment(postID primitive.ObjectID, userID primitive.
 		return nil, err
 	}
 
+	// 创建评论通知
+	notification := &model.CreateNotificationRequest{
+		Type:        model.NotificationTypeSystem,
+		Title:       "收到新的评论",
+		Content:     fmt.Sprintf("%s 评论了你的帖子《%s》：%s", post.Username, post.Title, content),
+		RelatedID:   postID.Hex(),
+		RelatedType: "post",
+		SenderID:    userID.Hex(),
+		SenderName:  post.Username,
+		SenderAvatar: post.Avatar,
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(post.UserID.Hex(), notification)
+	if err != nil {
+		log.Printf("创建评论通知失败: %v", err)
+		// 不影响评论功能，继续执行
+	}
+
 	return comment, nil
 }
 
-// 点赞评论
+// LikeComment 点赞评论
 func (s *PostService) LikeComment(commentID primitive.ObjectID, userID primitive.ObjectID) error {
 	// 检查是否已经点赞
 	exists, err := s.db.Collection("comment_likes").CountDocuments(
@@ -1062,7 +1286,7 @@ func (s *PostService) LikeComment(commentID primitive.ObjectID, userID primitive
 	return s.updateCommentScore(comment)
 }
 
-// 取消点赞评论
+// UnlikeComment 取消点赞评论
 func (s *PostService) UnlikeComment(commentID primitive.ObjectID, userID primitive.ObjectID) error {
 	// 删除点赞记录
 	result, err := s.db.Collection("comment_likes").DeleteOne(
@@ -1212,6 +1436,23 @@ func (s *PostService) SaveDraft(userID string, req *model.CreatePostRequest, dra
 		return nil, fmt.Errorf("创建草稿失败: %w", err)
 	}
 
+	// 发送新建草稿通知
+	notification := &model.CreateNotificationRequest{
+		Type:        model.NotificationTypeSystem,
+		Title:       "草稿已保存",
+		Content:     fmt.Sprintf("您的草稿《%s》已保存成功。您可以在草稿箱中查看并编辑此草稿，或将其发布。", draft.Title),
+		RelatedID:   draft.ID.Hex(),
+		RelatedType: "draft",
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(userID, notification)
+	if err != nil {
+		log.Printf("创建草稿保存通知失败: %v", err)
+		// 不影响草稿保存功能，继续执行
+	}
+
 	return &draft, nil
 }
 
@@ -1273,6 +1514,7 @@ func (s *PostService) GetUserDrafts(userID string, page, limit int) (*model.Post
 			Avatar:     draft.Avatar,
 			CreatedAt:  draft.CreatedAt,
 			UpdatedAt:  draft.UpdatedAt,
+			Status:     draft.Status,
 		}
 
 		// 如果 CoverImage 为空，则使用第一张图片作为封面
@@ -1450,6 +1692,28 @@ func (s *PostService) PublishDraft(draftID, userID string, updateReq *model.Upda
 		}()
 	}
 
+	// 发送草稿发布通知
+	tagStr := ""
+	if len(publishedPost.Tags) > 0 {
+		tagStr = "，标签：" + strings.Join(publishedPost.Tags, "、")
+	}
+	
+	notification := &model.CreateNotificationRequest{
+		Type:        model.NotificationTypeSystem,
+		Title:       "草稿已发布并提交审核",
+		Content:     fmt.Sprintf("您的草稿《%s》已成功发布并提交审核%s。审核通过后将对其他用户可见。", publishedPost.Title, tagStr),
+		RelatedID:   publishedPost.ID.Hex(),
+		RelatedType: "post",
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(userID, notification)
+	if err != nil {
+		log.Printf("创建草稿发布通知失败: %v", err)
+		// 不影响草稿发布功能，继续执行
+	}
+
 	return &publishedPost, nil
 }
 
@@ -1478,6 +1742,118 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 			return nil, err
 		}
 		filter["user_id"] = userID
+	}
+
+	// 处理高级筛选
+	if query.FilterUser != "" && query.FilterType != "" {
+		filterUserID, err := primitive.ObjectIDFromHex(query.FilterUser)
+		if err != nil {
+			return nil, fmt.Errorf("无效的筛选用户ID: %w", err)
+		}
+
+		switch query.FilterType {
+		case "onlyCurrentUser":
+			// 只显示筛选用户自己发布的帖子
+			filter["user_id"] = filterUserID
+
+		case "like":
+			// 显示筛选用户点赞过的帖子
+			// 先查询用户点赞记录
+			var likeRecords []model.PostLike
+			likeCursor, err := s.db.Collection("post_likes").Find(
+				context.Background(),
+				bson.M{"user_id": filterUserID},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("查询点赞记录失败: %w", err)
+			}
+			defer likeCursor.Close(context.Background())
+
+			if err = likeCursor.All(context.Background(), &likeRecords); err != nil {
+				return nil, fmt.Errorf("解析点赞记录失败: %w", err)
+			}
+
+			// 如果没有点赞记录，返回空结果
+			if len(likeRecords) == 0 {
+				return &model.CursorBasedPostResponse{
+					Posts:      []model.PostItem{},
+					NextCursor: "",
+					HasMore:    false,
+				}, nil
+			}
+
+			// 提取点赞过的帖子ID列表
+			var likedPostIDs []primitive.ObjectID
+			for _, like := range likeRecords {
+				likedPostIDs = append(likedPostIDs, like.PostID)
+			}
+
+			// 添加到查询条件中
+			filter["_id"] = bson.M{"$in": likedPostIDs}
+
+		case "follow":
+			// 显示筛选用户关注的用户的帖子
+			// 先查询用户关注的其他用户
+			var followedUsers []model.UserFollow
+			followCursor, err := s.db.Collection("user_follows").Find(
+				context.Background(),
+				bson.M{"user_id": filterUserID},
+			)
+			if err != nil {
+				return nil, fmt.Errorf("查询用户关注记录失败: %w", err)
+			}
+			defer followCursor.Close(context.Background())
+
+			if err = followCursor.All(context.Background(), &followedUsers); err != nil {
+				return nil, fmt.Errorf("解析用户关注记录失败: %w", err)
+			}
+
+			// 如果没有关注任何用户，返回空结果
+			if len(followedUsers) == 0 {
+				return &model.CursorBasedPostResponse{
+					Posts:      []model.PostItem{},
+					NextCursor: "",
+					HasMore:    false,
+				}, nil
+			}
+
+			// 提取关注的用户ID列表
+			var followedUserIDs []primitive.ObjectID
+			for _, follow := range followedUsers {
+				followedUserIDs = append(followedUserIDs, follow.FollowingID)
+			}
+
+			// 添加到查询条件中
+			filter["user_id"] = bson.M{"$in": followedUserIDs}
+		}
+	}
+
+	// 添加搜索条件
+	if query.Search != "" {
+		switch query.SearchType {
+		case "author":
+			// 搜索发帖人
+			filter["$or"] = []bson.M{
+				{"username": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"nickname": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
+		case "content":
+			// 搜索帖子内容
+			filter["$or"] = []bson.M{
+				{"title": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"content": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"tags": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
+		default:
+			// 搜索所有
+			filter["$or"] = []bson.M{
+				{"title": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"content": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"tags": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"username": bson.M{"$regex": query.Search, "$options": "i"}},
+				{"nickname": bson.M{"$regex": query.Search, "$options": "i"}},
+			}
+		}
 	}
 
 	// 使用游标进行分页
@@ -1512,62 +1888,68 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 	if len(posts) > query.Limit {
 		hasMore = true
 		posts = posts[:query.Limit] // 去掉多查询的那一条
+		nextCursor = posts[len(posts)-1].ID.Hex()
 	}
 
 	// 准备响应数据
 	var postItems []model.PostItem
 	for _, post := range posts {
-		// 获取封面图片的宽高信息
-		width, height := 800, 600 // 默认宽高
-		if post.CoverImage != "" {
-			// 这里可以添加获取图片宽高的逻辑
-			// 可以从文件元数据服务获取，或者用其他方式计算
-			if s.fileService != nil {
-				w, h, err := s.fileService.GetImageDimensions(post.CoverImage)
-				if err == nil {
-					width, height = w, h
-				}
-			}
-		} else if len(post.Files) > 0 {
-			// 如果没有设置封面图，使用第一张图片
-			if s.fileService != nil {
-				w, h, err := s.fileService.GetImageDimensions(post.Files[0])
-				if err == nil {
-					width, height = w, h
-				}
-			}
-		}
-
 		item := model.PostItem{
-			ID:         post.ID.Hex(),
-			Title:      post.Title,
-			Content:    post.Content,
-			Type:       post.Type,
-			Tags:       post.Tags,
-			Files:      post.Files,
-			CoverImage: post.CoverImage,
-			Width:      width,
-			Height:     height,
-			UserID:     post.UserID.Hex(),
-			Username:   post.Username,
-			Nickname:   post.Nickname,
-			Avatar:     post.Avatar,
-			Likes:      post.Likes,
-			Comments:   post.Comments,
-			CreatedAt:  post.CreatedAt,
+			ID:           post.ID.Hex(),
+			Title:        post.Title,
+			Content:      post.Content,
+			Type:         post.Type,
+			Tags:         post.Tags,
+			Files:        post.Files,
+			CoverImage:   post.CoverImage,
+			UserID:       post.UserID.Hex(),
+			Username:     post.Username,
+			Nickname:     post.Nickname,
+			Avatar:       post.Avatar,
+			Likes:        post.Likes,
+			Comments:     post.Comments,
+			LikeCount:    post.Likes,
+			CommentCount: post.Comments,
+			CollectCount: 0, // TODO: 从数据库获取收藏数
+			CreatedAt:    post.CreatedAt,
+			Status:       post.Status,
+			LikedByUser:  false,
+			FollowedByUser: false,
 		}
 
-		// 如果封面图为空，使用第一张图片
+		// 如果 CoverImage 为空，则使用第一张图片作为封面
 		if item.CoverImage == "" && len(post.Files) > 0 {
 			item.CoverImage = post.Files[0]
 		}
 
-		postItems = append(postItems, item)
-	}
+		// 检查当前用户是否点赞和关注
+		if query.CurrentUserID != "" {
+			// 检查点赞状态
+			likedByUser, err := s.HasLiked(post.ID.Hex(), query.CurrentUserID)
+			if err == nil {
+				item.LikedByUser = likedByUser
+			}
 
-	// 设置下一页游标
-	if hasMore && len(posts) > 0 {
-		nextCursor = posts[len(posts)-1].ID.Hex()
+			// 检查当前用户是否关注了帖子作者
+			// 这里应该查询用户关注关系，而不是帖子关注关系
+			currentUserObjectID, err := primitive.ObjectIDFromHex(query.CurrentUserID)
+			if err == nil {
+				postAuthorObjectID := post.UserID
+				// 查询用户关注表
+				count, err := s.db.Collection("user_follows").CountDocuments(
+					context.Background(),
+					bson.M{
+						"user_id":      currentUserObjectID,  // 当前用户ID
+						"following_id": postAuthorObjectID,   // 帖子作者ID
+					},
+				)
+				if err == nil {
+					item.FollowedByUser = count > 0
+				}
+			}
+		}
+
+		postItems = append(postItems, item)
 	}
 
 	return &model.CursorBasedPostResponse{
@@ -1575,4 +1957,211 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 		NextCursor: nextCursor,
 		HasMore:    hasMore,
 	}, nil
+}
+
+// FollowPost 关注帖子作者
+func (s *PostService) FollowPost(postID string, userID string) error {
+	// 解析用户ID
+	userObjectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	// 获取帖子详情
+	post, err := s.GetPostDetail(postID)
+	if err != nil {
+		return err
+	}
+
+	// 获取帖子作者ID
+	authorID := post.UserID
+
+	// 检查是否已经关注
+	count, err := s.db.Collection("user_follows").CountDocuments(
+		context.Background(),
+		bson.M{
+			"user_id":      userObjectID,
+			"following_id": authorID,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	if count > 0 {
+		// 如果已经关注，更新UpdatedAt字段
+		_, err = s.db.Collection("user_follows").UpdateOne(
+			context.Background(),
+			bson.M{
+				"user_id":      userObjectID,
+				"following_id": authorID,
+			},
+			bson.M{
+				"$set": bson.M{
+					"updated_at": now,
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// 创建关注记录
+	follower := struct {
+		ID          primitive.ObjectID `bson:"_id,omitempty"`
+		UserID      primitive.ObjectID `bson:"user_id"`
+		FollowingID primitive.ObjectID `bson:"following_id"`
+		CreatedAt   time.Time          `bson:"created_at"`
+		UpdatedAt   time.Time          `bson:"updated_at"`
+	}{
+		UserID:      userObjectID,
+		FollowingID: authorID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	_, err = s.db.Collection("user_follows").InsertOne(context.Background(), follower)
+	if err != nil {
+		return err
+	}
+
+	// 更新用户的关注数和作者的粉丝数
+	_, err = s.db.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjectID},
+		bson.M{"$inc": bson.M{"follow_count": 1}},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": authorID},
+		bson.M{"$inc": bson.M{"fans_count": 1}},
+	)
+	if err != nil {
+		return err
+	}
+
+	// 创建关注通知
+	notification := &model.CreateNotificationRequest{
+		Type:         model.NotificationTypeSystem,
+		Title:        "收到新的关注",
+		Content:      fmt.Sprintf("用户 %s 关注了你", post.Username),
+		RelatedID:    userID,
+		RelatedType:  "user",
+		SenderID:     userID,
+		SenderName:   post.Username,
+		SenderAvatar: post.Avatar,
+	}
+
+	// 获取通知服务
+	notificationService := NewNotificationService(s.db)
+	_, err = notificationService.CreateNotification(authorID.Hex(), notification)
+	if err != nil {
+		log.Printf("创建关注通知失败: %v", err)
+		// 不影响关注功能，继续执行
+	}
+
+	return nil
+}
+
+// UnfollowPost 取消关注帖子作者
+func (s *PostService) UnfollowPost(postID string, userID string) error {
+	userObjectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+
+	// 获取帖子详情
+	post, err := s.GetPostDetail(postID)
+	if err != nil {
+		return err
+	}
+
+	// 获取帖子作者ID
+	authorID := post.UserID
+
+	// 检查是否已经关注
+	count, err := s.db.Collection("user_follows").CountDocuments(
+		context.Background(),
+		bson.M{
+			"user_id":      userObjectID,
+			"following_id": authorID,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return errors.New("尚未关注此用户")
+	}
+
+	// 删除关注记录
+	_, err = s.db.Collection("user_follows").DeleteOne(
+		context.Background(),
+		bson.M{
+			"user_id":      userObjectID,
+			"following_id": authorID,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// 更新用户的关注数和作者的粉丝数
+	_, err = s.db.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjectID},
+		bson.M{"$inc": bson.M{"follow_count": -1}},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Collection("users").UpdateOne(
+		context.Background(),
+		bson.M{"_id": authorID},
+		bson.M{"$inc": bson.M{"fans_count": -1}},
+	)
+	if err != nil {
+		return err
+	}
+	
+	return err
+}
+
+// HasFollowed 检查用户是否已关注帖子作者
+func (s *PostService) HasFollowed(postID string, userID string) (bool, error) {
+	userObjectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return false, err
+	}
+
+	// 获取帖子详情
+	post, err := s.GetPostDetail(postID)
+	if err != nil {
+		return false, err
+	}
+
+	// 获取帖子作者ID
+	authorID := post.UserID
+
+	count, err := s.db.Collection("user_follows").CountDocuments(
+		context.Background(),
+		bson.M{
+			"user_id":      userObjectID,
+			"following_id": authorID,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }

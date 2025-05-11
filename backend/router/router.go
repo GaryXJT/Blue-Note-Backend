@@ -21,6 +21,8 @@ func SetupRouter(
 	adminController *controller.AdminController,
 	uploadController *controller.UploadController,
 	fileController *controller.FileController,
+	notificationController *controller.NotificationController,
+	commentController *controller.CommentController,
 	mongoClient *mongo.Client,
 ) *gin.Engine {
 	r := gin.Default()
@@ -63,7 +65,11 @@ func SetupRouter(
 		posts := public.Group("/posts")
 		{
 			posts.GET("", postController.GetPostList)
+			posts.GET("/cursor", postController.GetPostsWithCursor)
 			posts.GET("/:postId", postController.GetPostDetail)
+			
+			// 公开的评论列表路由
+			posts.GET("/:postId/comments", commentController.GetComments)
 		}
 	}
 
@@ -113,17 +119,15 @@ func SetupRouter(
 			posts.PUT("/:postId", postController.UpdatePost)
 			posts.DELETE("/:postId", postController.DeletePost)
 
-			// 评论相关
-			posts.GET("/:postId/comments", postController.GetPostComments)
-			posts.POST("/:postId/comments", postController.CreateComment)
-			posts.DELETE("/:postId/comments/:commentId", postController.DeleteComment)
-			posts.POST("/:postId/comments/:commentId/like", postController.LikeComment)
-			posts.DELETE("/:postId/comments/:commentId/like", postController.UnlikeComment)
-
 			// 点赞相关
 			posts.POST("/:postId/like", postController.LikePost)
 			posts.DELETE("/:postId/like", postController.UnlikePost)
 			posts.GET("/:postId/like", postController.CheckLikeStatus)
+
+			// 关注相关
+			posts.POST("/:postId/follow", postController.FollowPost)
+			posts.DELETE("/:postId/follow", postController.UnfollowPost)
+			posts.GET("/:postId/follow", postController.CheckFollowStatus)
 
 			// 草稿相关
 			posts.POST("/draft", postController.SaveDraft)
@@ -131,6 +135,16 @@ func SetupRouter(
 			posts.GET("/draft/:draftId", postController.GetDraftByID)
 			posts.DELETE("/draft/:draftId", postController.DeleteDraft)
 			posts.POST("/draft/:draftId/publish", postController.PublishDraft)
+		}
+
+		// 评论相关路由（需要登录）
+		comments := authorized.Group("/comments")
+		{
+			comments.POST("", commentController.CreateComment)
+			comments.DELETE("/:commentId", commentController.DeleteComment)
+			comments.POST("/:commentId/like", commentController.LikeComment)
+			comments.DELETE("/:commentId/like", commentController.UnlikeComment)
+			comments.GET("/:commentId/like", commentController.CheckLikeStatus)
 		}
 
 		// 文件上传
@@ -143,6 +157,9 @@ func SetupRouter(
 			admin.GET("/stats", adminController.GetStatistics)
 			admin.GET("/posts/pending", adminController.GetPendingPosts)
 			admin.PUT("/posts/:postId/review", postController.ReviewPost)
+			admin.GET("/users", adminController.GetUsers)
+			admin.PUT("/users/:userId/role/:role", adminController.UpdateUserRole)
+			admin.DELETE("/users/:userId", adminController.DeleteUser)
 		}
 
 		// 创建速率限制器
@@ -153,6 +170,16 @@ func SetupRouter(
 		{
 			// 保留删除文件的路由
 			files.POST("/delete", rateLimiter.RateLimit(10, time.Minute), fileController.DeleteFile)
+		}
+
+		// 通知相关路由
+		notifications := authorized.Group("/notifications")
+		{
+			notifications.GET("", notificationController.GetNotificationList)
+			notifications.GET("/unread/count", notificationController.GetUnreadCount)
+			notifications.PUT("/:id", notificationController.UpdateNotification)
+			notifications.DELETE("/:id", notificationController.DeleteNotification)
+			notifications.PUT("/read/all", notificationController.MarkAllAsRead)
 		}
 	}
 

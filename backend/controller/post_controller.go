@@ -66,27 +66,25 @@ func (c *PostController) CreatePost(ctx *gin.Context) {
 	})
 }
 
+// GetPostList 获取帖子列表
 func (c *PostController) GetPostList(ctx *gin.Context) {
-	// 判断是否使用游标分页
-	if ctx.Query("cursor") != "" {
-		c.GetPostsWithCursor(ctx)
-		return
-	}
-
 	var query model.PostQuery
 	if err := ctx.ShouldBindQuery(&query); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
 			"message": "请求参数错误",
+			"error":   err.Error(),
 		})
 		return
 	}
 
+	// 获取帖子列表
 	result, err := c.postService.GetPostList(&query)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": "获取帖子列表失败",
+			"error":   err.Error(),
 		})
 		return
 	}
@@ -107,6 +105,15 @@ func (c *PostController) GetPostsWithCursor(ctx *gin.Context) {
 			"message": "请求参数错误",
 		})
 		return
+	}
+
+	// 获取当前用户ID，只用于设置CurrentUserID（用于检查点赞、关注状态）
+	userID := ctx.GetString("userId")
+	if userID != "" {
+		query.CurrentUserID = userID
+		
+		// 移除自动设置FilterUser为当前用户的逻辑
+		// filterUser应该由前端明确指定，用于筛选特定用户的帖子
 	}
 
 	result, err := c.postService.GetPostListWithCursor(&query)
@@ -555,5 +562,68 @@ func (c *PostController) PublishDraft(ctx *gin.Context) {
 		"code":    0,
 		"message": "发布成功",
 		"data":    post,
+	})
+}
+
+// 关注帖子作者
+func (c *PostController) FollowPost(ctx *gin.Context) {
+	postID := ctx.Param("postId")
+	userID := ctx.GetString("userId")
+
+	err := c.postService.FollowPost(postID, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "关注用户失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+	})
+}
+
+// 取消关注帖子作者
+func (c *PostController) UnfollowPost(ctx *gin.Context) {
+	postID := ctx.Param("postId")
+	userID := ctx.GetString("userId")
+
+	err := c.postService.UnfollowPost(postID, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "取消关注用户失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+	})
+}
+
+// 检查关注状态
+func (c *PostController) CheckFollowStatus(ctx *gin.Context) {
+	postID := ctx.Param("postId")
+	userID := ctx.GetString("userId")
+
+	hasFollowed, err := c.postService.HasFollowed(postID, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "检查关注状态失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+		"data": gin.H{
+			"hasFollowed": hasFollowed,
+		},
 	})
 }

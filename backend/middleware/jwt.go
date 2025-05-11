@@ -54,6 +54,11 @@ func GenerateToken(user *model.User) (string, error) {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
+		fmt.Printf("authHeader: %s\n", "111111111")
+		fmt.Printf("authHeader: %s\n", authHeader)
+		fmt.Printf("authHeader: %s\n", authHeader)
+		fmt.Printf("authHeader: %s\n", authHeader)
+		fmt.Printf("authHeader: %s\n", authHeader)
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"code":    401,

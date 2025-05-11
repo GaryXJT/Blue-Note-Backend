@@ -94,6 +94,8 @@ func main() {
 	// 其他服务
 	postService := service.NewPostService(db, fileService)
 	adminService := service.NewAdminService(db)
+	notificationService := service.NewNotificationService(db)
+	commentService := service.NewCommentService(db)
 
 	authController := controller.NewAuthController(authService)
 	profileController := controller.NewProfileController(profileService)
@@ -101,6 +103,8 @@ func main() {
 	adminController := controller.NewAdminController(adminService, objectStorageService)
 	uploadController := controller.NewUploadController(objectStorageService, fileService)
 	fileController := controller.NewFileController(fileService)
+	notificationController := controller.NewNotificationController(notificationService)
+	commentController := controller.NewCommentController(commentService)
 
 	// 设置路由
 	r := router.SetupRouter(
@@ -110,6 +114,8 @@ func main() {
 		adminController,
 		uploadController,
 		fileController,
+		notificationController,
+		commentController,
 		mongoClient,
 	)
 
