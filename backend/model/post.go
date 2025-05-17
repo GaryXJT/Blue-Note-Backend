@@ -141,6 +141,7 @@ type CursorQuery struct {
 	CurrentUserID string `form:"currentUserId" binding:"omitempty"` // 当前登录用户ID
 	FilterUser    string `form:"filterUser" binding:"omitempty"`    // 筛选目标用户ID
 	FilterType    string `form:"filterType" binding:"omitempty,oneof= onlyCurrentUser like follow"` // 筛选类型：空、onlyCurrentUser、like、follow
+	DataClass     string `form:"dataClass" binding:"omitempty"`     // 前端传入的分类名称，用于筛选标签
 }
 
 // CursorBasedPostResponse 基于游标的帖子列表响应

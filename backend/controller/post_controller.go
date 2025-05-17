@@ -111,9 +111,13 @@ func (c *PostController) GetPostsWithCursor(ctx *gin.Context) {
 	userID := ctx.GetString("userId")
 	if userID != "" {
 		query.CurrentUserID = userID
-		
-		// 移除自动设置FilterUser为当前用户的逻辑
-		// filterUser应该由前端明确指定，用于筛选特定用户的帖子
+	}
+	
+	// 处理dataClass参数
+	dataClass := ctx.Query("dataClass")
+	if dataClass != "" {
+		// 将前端传入的dataClass值设置到query中
+		query.DataClass = dataClass
 	}
 
 	result, err := c.postService.GetPostListWithCursor(&query)

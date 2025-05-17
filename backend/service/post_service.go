@@ -1743,6 +1743,12 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 		}
 		filter["user_id"] = userID
 	}
+	
+	// 处理dataClass分类筛选
+	if query.DataClass != "" && query.DataClass != "所有" {
+		// 如果不是"所有"，则进行标签筛选
+		filter["tags"] = query.DataClass
+	}
 
 	// 处理高级筛选
 	if query.FilterUser != "" && query.FilterType != "" {
