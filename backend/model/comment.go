@@ -25,6 +25,7 @@ type Comment struct {
 	IsAuthor     bool                 `bson:"is_author" json:"isAuthor"`  // 是否是帖子作者
 	IsAdmin      bool                 `bson:"is_admin" json:"isAdmin"`    // 是否是管理员
 	Status       string               `bson:"status" json:"status"`      // 状态：normal-正常，deleted-已删除，hidden-已隐藏
+	Score        float64              `bson:"score" json:"score"`        // 评论综合评分，用于排序
 	CreatedAt    time.Time            `bson:"created_at" json:"createdAt"`
 	UpdatedAt    time.Time            `bson:"updated_at" json:"updatedAt"`
 	LikedByUser  bool                 `bson:"liked_by_user,omitempty" json:"likedByUser,omitempty"` // 当前用户是否点赞（非数据库字段）
@@ -50,6 +51,7 @@ type CommentWithChildren struct {
 	IsAuthor     bool                 `json:"isAuthor"`
 	IsAdmin      bool                 `json:"isAdmin"`
 	Status       string               `json:"status"`
+	Score        float64              `json:"score"`
 	CreatedAt    time.Time            `json:"createdAt"`
 	UpdatedAt    time.Time            `json:"updatedAt"`
 	LikedByUser  bool                 `json:"likedByUser"`

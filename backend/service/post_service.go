@@ -2049,7 +2049,7 @@ func (s *PostService) FollowPost(postID string, userID string) error {
 
 	// 创建关注通知
 	notification := &model.CreateNotificationRequest{
-		Type:         model.NotificationTypeSystem,
+		Type:         model.NotificationTypeFollow,
 		Title:        "收到新的关注",
 		Content:      fmt.Sprintf("用户 %s 关注了你", post.Username),
 		RelatedID:    userID,

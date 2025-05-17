@@ -743,4 +743,132 @@ func (s *CommentService) HasLikedComment(commentID string, userID string) (bool,
 	}
 
 	return count > 0, nil
+}
+
+// GetAllComments 获取所有评论（不分页）
+func (s *CommentService) GetAllComments(postID string, currentUserID string) (*model.CommentListResponse, error) {
+	// 解析帖子ID
+	postObjectID, err := primitive.ObjectIDFromHex(postID)
+	if err != nil {
+		return nil, errors.New("无效的帖子ID")
+	}
+
+	// 构建基础查询条件
+	filter := bson.M{
+		"post_id": postObjectID,
+		"status":  "normal",
+	}
+
+	// 获取总数
+	total, err := s.db.Collection("comments").CountDocuments(context.Background(), filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查询所有评论，按时间排序
+	sort := bson.D{{Key: "created_at", Value: 1}} // 按创建时间升序
+
+	cursor, err := s.db.Collection("comments").Find(
+		context.Background(), 
+		filter,
+		options.Find().SetSort(sort),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(context.Background())
+
+	var comments []model.Comment
+	if err = cursor.All(context.Background(), &comments); err != nil {
+		return nil, err
+	}
+
+	// 构建评论树结构
+	commentMap := make(map[string]*model.CommentWithChildren)
+	rootComments := make([]*model.CommentWithChildren, 0)
+
+	// 第一步：转换所有评论为API格式并创建映射
+	for _, comment := range comments {
+		// 检查当前用户是否点赞了该评论
+		likedByUser := false
+		if currentUserID != "" {
+			currentUserObjectID, err := primitive.ObjectIDFromHex(currentUserID)
+			if err == nil {
+				count, err := s.db.Collection("comment_likes").CountDocuments(
+					context.Background(),
+					bson.M{
+						"comment_id": comment.ID,
+						"user_id":    currentUserObjectID,
+					},
+				)
+				if err == nil {
+					likedByUser = count > 0
+				}
+			}
+		}
+
+		// 转换为API响应格式
+		cwc := &model.CommentWithChildren{
+			ID:           comment.ID.Hex(),
+			PostID:       comment.PostID.Hex(),
+			UserID:       comment.UserID.Hex(),
+			Username:     comment.Username,
+			Nickname:     comment.Nickname,
+			Avatar:       comment.Avatar,
+			Content:      comment.Content,
+			Likes:        comment.Likes,
+			ChildrenCount: comment.ChildrenCount,
+			Level:        comment.Level,
+			IsAuthor:     comment.IsAuthor,
+			IsAdmin:      comment.IsAdmin,
+			Status:       comment.Status,
+			Score:        comment.Score,
+			CreatedAt:    comment.CreatedAt,
+			UpdatedAt:    comment.UpdatedAt,
+			LikedByUser:  likedByUser,
+			Children:     []*model.CommentWithChildren{},
+		}
+
+		// 设置ParentID（如果有）
+		if comment.ParentID != nil {
+			cwc.ParentID = comment.ParentID.Hex()
+		}
+
+		// 设置RootID（如果有）
+		if comment.RootID != nil {
+			cwc.RootID = comment.RootID.Hex()
+		}
+
+		// 设置ReplyToID和ReplyToName（如果有）
+		if comment.ReplyToID != nil {
+			cwc.ReplyToID = comment.ReplyToID.Hex()
+			cwc.ReplyToName = comment.ReplyToName
+		}
+
+		// 将评论添加到映射中
+		commentMap[cwc.ID] = cwc
+
+		// 如果是顶级评论，添加到根评论列表
+		if comment.Level == 0 {
+			rootComments = append(rootComments, cwc)
+		}
+	}
+
+	// 第二步：构建评论树
+	for _, comment := range commentMap {
+		if comment.ParentID != "" {
+			// 如果有父评论，将当前评论添加到父评论的子评论列表中
+			if parent, exists := commentMap[comment.ParentID]; exists {
+				parent.Children = append(parent.Children, comment)
+			}
+		}
+	}
+
+	return &model.CommentListResponse{
+		Comments: rootComments,
+		Total:    int(total),
+		Page:     1,
+		PageSize: int(total),
+		HasMore:  false,
+	}, nil
 } 

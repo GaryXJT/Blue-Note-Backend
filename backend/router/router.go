@@ -70,6 +70,8 @@ func SetupRouter(
 			
 			// 公开的评论列表路由
 			posts.GET("/:postId/comments", commentController.GetComments)
+			// 获取所有评论（不分页）
+			posts.GET("/:postId/comments/all", commentController.GetAllComments)
 		}
 	}
 

@@ -228,4 +228,28 @@ func (c *CommentController) CheckLikeStatus(ctx *gin.Context) {
 			"hasLiked": hasLiked,
 		},
 	})
+}
+
+// GetAllComments 获取帖子的所有评论（不分页）
+func (c *CommentController) GetAllComments(ctx *gin.Context) {
+	postID := ctx.Param("postId")
+	
+	// 获取当前用户ID（用于检查点赞状态）
+	currentUserID := ctx.GetString("userId")
+
+	// 获取所有评论
+	commentList, err := c.commentService.GetAllComments(postID, currentUserID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取评论失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取评论成功",
+		"data":    commentList,
+	})
 } 

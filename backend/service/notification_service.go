@@ -29,7 +29,7 @@ func (s *NotificationService) CreateNotification(userID string, req *model.Creat
 
 	notification := &model.Notification{
 		UserID:    userObjID,
-		Type:      req.Type,
+		Type:      model.NotificationType(req.Type),
 		Title:     req.Title,
 		Content:   req.Content,
 		IsRead:    false,
