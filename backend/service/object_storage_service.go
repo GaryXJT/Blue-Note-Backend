@@ -45,14 +45,15 @@ func NewObjectStorageService(cfg *config.Config) (*ObjectStorageService, error) 
 
 	// 创建自定义传输配置
 	transport := &http.Transport{
-		ResponseHeaderTimeout: 30 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
 		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
+			Timeout:   10 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 100,
 		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 	}
 
 	// 使用自定义HTTP客户端创建MinIO客户端
@@ -129,7 +130,7 @@ func (s *ObjectStorageService) UploadFile(fileReader io.Reader, objectName, cont
 
 	// 尝试上传到对象存储
 	for retry := 0; retry < 3; retry++ {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second) // 减少到15秒
 		defer cancel()
 
 		_, err := s.client.PutObject(ctx, s.bucketName, objectName, fileReader, -1, minio.PutObjectOptions{
@@ -311,6 +312,12 @@ func (s *ObjectStorageService) StartHealthCheck() {
 func (s *ObjectStorageService) GetFileURL(filePath string) string {
 	// 记录日志
 	log.Printf("GetFileURL - 原始路径: %s", filePath)
+
+	// 如果已经是完整的URL（以http://或https://开头），直接返回
+	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
+		log.Printf("GetFileURL - 已是完整URL，直接返回: %s", filePath)
+		return filePath
+	}
 
 	// 直接根据文件路径特征判断是否是本地文件
 	// 如果路径以/uploads开头或包含uploads，则认为是本地文件

@@ -1,0 +1,146 @@
+环境变量 APP_ENV = production
+当前运行环境: production
+MongoDB URI: mongodb://root:ndpvkj55@dbconn.sealoshzh.site:30667/?directConnection=true
+Redis URI: redis://default:6qcbbdwx@dbconn.sealoshzh.site:45216
+2025/05/28 14:25:16 当前环境: production
+2025/05/28 14:25:16 正在连接MongoDB: mongodb://root:ndpvkj55@dbconn.sealoshzh.site:30667/?directConnection=true
+2025/05/28 14:25:16 正在连接MongoDB: mongodb://root:ndpvkj55@dbconn.sealoshzh.site:30667/?directConnection=true
+2025/05/28 14:25:16 MongoDB连接成功，数据库: bluenote
+开始初始化对象存储服务...
+==== 对象存储配置 ====
+Endpoint: objectstorageapi.hzh.sealos.run
+InternalEndpoint: objectstorageapi.hzh.sealos.run
+ExternalEndpoint: objectstorageapi.hzh.sealos.run
+BucketName: u6holj03-blue-note
+AccessKey: u6holj03
+UseSSL: true
+使用端点: objectstorageapi.hzh.sealos.run
+MinIO客户端创建成功
+2025/05/28 14:25:16 对象存储服务初始化成功
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (4 handlers)
+[GIN-debug] HEAD   /uploads/*filepath        --> github.com/gin-gonic/gin.(*RouterGroup).createStaticHandler.func1 (4 handlers)
+已配置静态文件服务: /uploads -> ./uploads
+[GIN-debug] GET    /api/v1/auth/captcha      --> blue-note/controller.(*AuthController).GetCaptcha-fm (4 handlers)
+[GIN-debug] POST   /api/v1/auth/login        --> blue-note/controller.(*AuthController).Login-fm (4 handlers)
+[GIN-debug] POST   /api/v1/auth/change-password --> blue-note/controller.(*AuthController).ChangePassword-fm (4 handlers)
+[GIN-debug] GET    /api/v1/posts             --> blue-note/controller.(*PostController).GetPostList-fm (4 handlers)
+[GIN-debug] GET    /api/v1/posts/cursor      --> blue-note/controller.(*PostController).GetPostsWithCursor-fm (4 handlers)
+[GIN-debug] GET    /api/v1/posts/:postId     --> blue-note/controller.(*PostController).GetPostDetail-fm (4 handlers)
+[GIN-debug] GET    /api/v1/posts/:postId/comments --> blue-note/controller.(*CommentController).GetComments-fm (4 handlers)
+[GIN-debug] GET    /api/v1/posts/:postId/comments/all --> blue-note/controller.(*CommentController).GetAllComments-fm (4 handlers)
+[GIN-debug] GET    /api/v1/users/profile/:userId --> blue-note/controller.(*ProfileController).GetProfile-fm (5 handlers)
+[GIN-debug] PUT    /api/v1/users/profile     --> blue-note/controller.(*ProfileController).UpdateProfile-fm (5 handlers)
+[GIN-debug] POST   /api/v1/users/follow/:userId --> blue-note/controller.(*ProfileController).FollowUser-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/users/follow/:userId --> blue-note/controller.(*ProfileController).UnfollowUser-fm (5 handlers)
+[GIN-debug] GET    /api/v1/users/follow/check/:userId --> blue-note/controller.(*ProfileController).CheckFollowStatus-fm (5 handlers)
+[GIN-debug] GET    /api/v1/users/:userId/following --> blue-note/controller.(*ProfileController).GetFollowingList-fm (5 handlers)
+[GIN-debug] GET    /api/v1/users/:userId/fans --> blue-note/controller.(*ProfileController).GetFansList-fm (5 handlers)
+[GIN-debug] GET    /api/v1/users/:userId/likes --> blue-note/controller.(*ProfileController).GetUserLikedPosts-fm (5 handlers)
+[GIN-debug] GET    /api/v1/users/:userId/collections --> blue-note/controller.(*ProfileController).GetUserCollectedPosts-fm (5 handlers)
+[GIN-debug] POST   /api/v1/posts             --> blue-note/controller.(*PostController).CreatePost-fm (5 handlers)
+[GIN-debug] PUT    /api/v1/posts/:postId     --> blue-note/controller.(*PostController).UpdatePost-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/posts/:postId     --> blue-note/controller.(*PostController).DeletePost-fm (5 handlers)
+[GIN-debug] POST   /api/v1/posts/:postId/like --> blue-note/controller.(*PostController).LikePost-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/posts/:postId/like --> blue-note/controller.(*PostController).UnlikePost-fm (5 handlers)
+[GIN-debug] GET    /api/v1/posts/:postId/like --> blue-note/controller.(*PostController).CheckLikeStatus-fm (5 handlers)
+[GIN-debug] POST   /api/v1/posts/:postId/follow --> blue-note/controller.(*PostController).FollowPost-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/posts/:postId/follow --> blue-note/controller.(*PostController).UnfollowPost-fm (5 handlers)
+[GIN-debug] GET    /api/v1/posts/:postId/follow --> blue-note/controller.(*PostController).CheckFollowStatus-fm (5 handlers)
+[GIN-debug] POST   /api/v1/posts/draft       --> blue-note/controller.(*PostController).SaveDraft-fm (5 handlers)
+[GIN-debug] GET    /api/v1/posts/drafts      --> blue-note/controller.(*PostController).GetUserDrafts-fm (5 handlers)
+[GIN-debug] GET    /api/v1/posts/draft/:draftId --> blue-note/controller.(*PostController).GetDraftByID-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/posts/draft/:draftId --> blue-note/controller.(*PostController).DeleteDraft-fm (5 handlers)
+[GIN-debug] POST   /api/v1/posts/draft/:draftId/publish --> blue-note/controller.(*PostController).PublishDraft-fm (5 handlers)
+[GIN-debug] POST   /api/v1/comments          --> blue-note/controller.(*CommentController).CreateComment-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/comments/:commentId --> blue-note/controller.(*CommentController).DeleteComment-fm (5 handlers)
+[GIN-debug] POST   /api/v1/comments/:commentId/like --> blue-note/controller.(*CommentController).LikeComment-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/comments/:commentId/like --> blue-note/controller.(*CommentController).UnlikeComment-fm (5 handlers)
+[GIN-debug] GET    /api/v1/comments/:commentId/like --> blue-note/controller.(*CommentController).CheckLikeStatus-fm (5 handlers)
+[GIN-debug] POST   /api/v1/upload            --> blue-note/controller.(*UploadController).UploadFile-fm (5 handlers)
+[GIN-debug] GET    /api/v1/admin/stats       --> blue-note/controller.(*AdminController).GetStatistics-fm (6 handlers)
+[GIN-debug] GET    /api/v1/admin/posts/pending --> blue-note/controller.(*AdminController).GetPendingPosts-fm (6 handlers)
+[GIN-debug] PUT    /api/v1/admin/posts/:postId/review --> blue-note/controller.(*PostController).ReviewPost-fm (6 handlers)
+[GIN-debug] GET    /api/v1/admin/users       --> blue-note/controller.(*AdminController).GetUsers-fm (6 handlers)
+[GIN-debug] PUT    /api/v1/admin/users/:userId/role/:role --> blue-note/controller.(*AdminController).UpdateUserRole-fm (6 handlers)
+[GIN-debug] DELETE /api/v1/admin/users/:userId --> blue-note/controller.(*AdminController).DeleteUser-fm (6 handlers)
+[GIN-debug] POST   /api/v1/file/delete       --> blue-note/controller.(*FileController).DeleteFile-fm (6 handlers)
+[GIN-debug] GET    /api/v1/notifications     --> blue-note/controller.(*NotificationController).GetNotificationList-fm (5 handlers)
+[GIN-debug] GET    /api/v1/notifications/unread/count --> blue-note/controller.(*NotificationController).GetUnreadCount-fm (5 handlers)
+[GIN-debug] PUT    /api/v1/notifications/:id --> blue-note/controller.(*NotificationController).UpdateNotification-fm (5 handlers)
+[GIN-debug] DELETE /api/v1/notifications/:id --> blue-note/controller.(*NotificationController).DeleteNotification-fm (5 handlers)
+[GIN-debug] PUT    /api/v1/notifications/read/all --> blue-note/controller.(*NotificationController).MarkAllAsRead-fm (5 handlers)
+[GIN-debug] GET    /health                   --> blue-note/router.SetupRouter.func1 (4 handlers)
+2025/05/28 14:25:16 服务器启动在 :8080
+列出存储桶失败: Get "https://objectstorageapi.hzh.sealos.run/": context deadline exceeded
+[GIN] 2025/05/28 - 14:26:09 | 204 |      43.989µs |  117.88.132.141 | OPTIONS  "/api/v1/upload"
+authHeader: 111111111
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+2025/05/28 14:26:09 [3d2d788b-1427-40f2-ba8b-a3630f005182] 开始上传文件: 3a8f0941-1748442369729.jpg, 大小: 139777 bytes
+2025/05/28 14:26:10 GetFileURL - 原始路径: image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 对象存储文件，返回: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 [3d2d788b-1427-40f2-ba8b-a3630f005182] 上传成功: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+[GIN] 2025/05/28 - 14:26:10 | 200 |  929.222732ms |  117.88.132.141 | POST     "/api/v1/upload"
+[GIN] 2025/05/28 - 14:26:10 | 204 |      22.147µs |  117.88.132.141 | OPTIONS  "/api/v1/posts"
+authHeader: 111111111
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+authHeader: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM3MTlmZGQ2YzQ3MTU4ZDkxZjUwYmMiLCJ1c2VybmFtZSI6InEiLCJyb2xlIjoidXNlciIsIm5pY2tuYW1lIjoicSIsImF2YXRhciI6Imh0dHBzOi8vb2JqZWN0c3RvcmFnZWFwaS5oemguc2VhbG9zLnJ1bi91NmhvbGowMy1ibHVlLW5vdGUvc3RhdGljL2RlZmF1bHQtYXZhdGFyLmpwZyIsImV4cCI6MTc0OTA0NjM5NywiaWF0IjoxNzQ4NDQxNTk3fQ.ujk8K31i_UfhJj5W33iiYabaLQRwOwwzpf_sPLAvsHg
+2025/05/28 14:26:10 开始为帖子自动分析标签
+2025/05/28 14:26:10 开始分析标签，标题长度: 22, 内容长度: 35, 图片文件: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 连接星火API，URL长度: 363
+2025/05/28 14:26:10 星火API连接成功
+2025/05/28 14:26:10 尝试获取图片文件内容: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileContent - 原始文件路径: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 原始路径: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 已是完整URL，直接返回: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileContent - 文件URL: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileContent - 读取远程文件: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileContent - 文件Content-Type: image/jpeg
+2025/05/28 14:26:10 GetFileContent - 成功读取远程文件，大小: 139777 bytes
+2025/05/28 14:26:10 成功获取图片内容，大小: 139777 bytes
+2025/05/28 14:26:10 GetFileURL - 原始路径: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 已是完整URL，直接返回: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 图片URL: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 原始路径: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 GetFileURL - 已是完整URL，直接返回: https://objectstorageapi.hzh.sealos.run/u6holj03-blue-note/image/2025/05/28/3a8f0941-1748442369729.jpg
+2025/05/28 14:26:10 图片尺寸: 690x863, 像素总数: 595470
+2025/05/28 14:26:10 图片大小: 0.13 MB
+2025/05/28 14:26:10 成功获取图片内容并转换为Base64，长度: 186372
+2025/05/28 14:26:10 组合后的内容长度: 327
+2025/05/28 14:26:10 添加图片消息
+2025/05/28 14:26:10 添加文本消息，共有 2 条消息
+2025/05/28 14:26:10 消息[0]: 角色=user, 类型=image, 内容长度=186372
+2025/05/28 14:26:10 消息[1]: 角色=user, 类型=text, 内容长度=327
+2025/05/28 14:26:10 发送请求到星火API: {"header":{"app_id":"d27a2420"},"parameter":{"chat":{"domain":"imagev3","max_tokens":2048,"temperature":0.5,"top_k":4}},"payload":{"message":{"text":"2条消息"}}}
+2025/05/28 14:26:10 请求已发送，等待响应...
+2025/05/28 14:26:10 等待第1条响应消息...
+2025/05/28 14:26:12 收到第1条响应消息，长度: 201
+2025/05/28 14:26:12 等待第2条响应消息...
+2025/05/28 14:26:12 收到第2条响应消息，长度: 198
+2025/05/28 14:26:12 等待第3条响应消息...
+2025/05/28 14:26:12 收到第3条响应消息，长度: 195
+2025/05/28 14:26:12 等待第4条响应消息...
+2025/05/28 14:26:12 收到第4条响应消息，长度: 198
+2025/05/28 14:26:12 等待第5条响应消息...
+2025/05/28 14:26:12 收到第5条响应消息，长度: 291
+2025/05/28 14:26:12 收到最终结果
+2025/05/28 14:26:12 解析结果: ["健身", "风景", "旅行"]
+2025/05/28 14:26:12 提取到JSON数组: ["健身", "风景", "旅行"]
+2025/05/28 14:26:12 提取的标签: [健身 风景 旅行]
+2025/05/28 14:26:12 最终有效标签: [健身 风景 旅行]
+2025/05/28 14:26:12 成功获取标签: [健身 风景 旅行]
+[GIN] 2025/05/28 - 14:26:12 | 200 |  1.897171028s |  117.88.132.141 | POST     "/api/v1/posts"
+[GIN] 2025/05/28 - 14:26:13 | 204 |      12.909µs |  117.88.132.141 | OPTIONS  "/api/v1/posts?page=1&limit=10"
+[GIN] 2025/05/28 - 14:26:13 | 200 |    9.540108ms |  117.88.132.141 | GET      "/api/v1/posts?page=1&limit=10"
+[GIN] 2025/05/28 - 14:26:13 | 204 |      13.854µs |  117.88.132.141 | OPTIONS  "/api/v1/posts?page=1&limit=10&userId=683719fdd6c47158d91f50bc"
+[GIN] 2025/05/28 - 14:26:13 | 200 |    9.545753ms |  117.88.132.141 | GET      "/api/v1/posts?page=1&limit=10&userId=683719fdd6c47158d91f50bc"

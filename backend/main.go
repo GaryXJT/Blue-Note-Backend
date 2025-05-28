@@ -29,8 +29,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// 临时使用本地MongoDB连接
-	mongoURI := "mongodb://localhost:27017"
+	// 使用配置文件中的MongoDB连接
+	mongoURI := config.GetConfig().MongoDB.URI
 	log.Printf("正在连接MongoDB: %s", mongoURI)
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {

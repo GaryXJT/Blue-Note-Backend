@@ -63,24 +63,24 @@ func Init() error {
 		viper.SetDefault("objectstorage.endpoint", "objectstorageapi.hzh.sealos.run")
 		viper.SetDefault("objectstorage.internalendpoint", "objectstorageapi.hzh.sealos.run")
 		viper.SetDefault("objectstorage.externalendpoint", "objectstorageapi.hzh.sealos.run")
-		viper.SetDefault("objectstorage.accesskey", "duc9pmlo")
-		viper.SetDefault("objectstorage.secretkey", "fzkzd9q2bbg4jp5j")
-		viper.SetDefault("objectstorage.bucketname", "duc9pmlo-blue-note") // 保持原来的桶名，除非您有新的桶名
+		viper.SetDefault("objectstorage.accesskey", "u6holj03")
+		viper.SetDefault("objectstorage.secretkey", "bls9lcm5w4bt6qdw")
+		viper.SetDefault("objectstorage.bucketname", "u6holj03-blue-note")
 		viper.SetDefault("objectstorage.usessl", true) // 外部访问通常需要SSL
 	} else {
 		// 生产环境配置
-		viper.SetDefault("mongodb.uri", "mongodb://root:spdlw7qd@blue-note-db-mongodb.ns-h49hpg7e.svc:27017")
+		viper.SetDefault("mongodb.uri", "mongodb://root:ndpvkj55@dbconn.sealoshzh.site:30667/?directConnection=true")
 		viper.SetDefault("mongodb.database", "bluenote")
-		viper.SetDefault("redis.uri", "redis://default:dfwfdwgx@blue-note-redis-db-redis.ns-h49hpg7e.svc:6379")
+		viper.SetDefault("redis.uri", "redis://default:6qcbbdwx@dbconn.sealoshzh.site:45216")
 		
-		// 生产环境对象存储配置保持不变
-		viper.SetDefault("objectstorage.endpoint", "object-storage.objectstorage-system.svc.cluster.local")
-		viper.SetDefault("objectstorage.internalendpoint", "object-storage.objectstorage-system.svc.cluster.local")
-		viper.SetDefault("objectstorage.externalendpoint", "static-host-h49hpg7e-blue-note.sealoshzh.site")
-		viper.SetDefault("objectstorage.accesskey", "h49hpg7e")
-		viper.SetDefault("objectstorage.secretkey", "p4j8pq9ctnbhshpj")
-		viper.SetDefault("objectstorage.bucketname", "h49hpg7e-blue-note")
-		viper.SetDefault("objectstorage.usessl", false)
+		// 生产环境对象存储配置 - 使用外部端点
+		viper.SetDefault("objectstorage.endpoint", "objectstorageapi.hzh.sealos.run")
+		viper.SetDefault("objectstorage.internalendpoint", "objectstorageapi.hzh.sealos.run")
+		viper.SetDefault("objectstorage.externalendpoint", "objectstorageapi.hzh.sealos.run")
+		viper.SetDefault("objectstorage.accesskey", "u6holj03")
+		viper.SetDefault("objectstorage.secretkey", "bls9lcm5w4bt6qdw")
+		viper.SetDefault("objectstorage.bucketname", "u6holj03-blue-note")
+		viper.SetDefault("objectstorage.usessl", true)
 	}
 	
 	viper.SetDefault("jwt.secret", "your-secret-key")

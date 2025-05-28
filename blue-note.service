@@ -1,0 +1,26 @@
+[Unit]
+Description=Blue Note Backend Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=devbox
+Group=devbox
+WorkingDirectory=/home/devbox/project/Blue-Note-Backend
+ExecStart=/home/devbox/project/Blue-Note-Backend/main
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# 环境变量
+Environment=GIN_MODE=release
+
+# 资源限制
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target 

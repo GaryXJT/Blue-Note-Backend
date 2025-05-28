@@ -1,0 +1,22 @@
+mongodb:
+  uri: mongodb://root:ndpvkj55@dbconn.sealoshzh.site:30667/?directConnection=true
+  database: bluenote
+
+redis:
+  uri: redis://default:6qcbbdwx@dbconn.sealoshzh.site:45216
+
+jwt:
+  secret: blue-note-jwt-secret-key
+  expire: 168 # 小时
+
+server:
+  port: 8080
+
+objectstorage:
+  endpoint: objectstorageapi.hzh.sealos.run
+  internalendpoint: objectstorageapi.hzh.sealos.run
+  externalendpoint: objectstorageapi.hzh.sealos.run
+  accesskey: u6holj03
+  secretkey: bls9lcm5w4bt6qdw
+  bucketname: u6holj03-blue-note
+  usessl: true 
