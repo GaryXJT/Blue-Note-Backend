@@ -1900,6 +1900,20 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 	// 准备响应数据
 	var postItems []model.PostItem
 	for _, post := range posts {
+		// 处理头像字段，如果为空则使用默认头像
+		avatarURL := post.Avatar
+		if avatarURL == "" {
+			// 创建一个临时的ProfileService实例来获取默认头像URL
+			// 注意：这里需要确保objectStorageService可用
+			if s.fileService != nil && s.fileService.objectStorageService != nil {
+				avatarURL = fmt.Sprintf("https://%s/%s/static/default-avatar.jpg", 
+					s.fileService.objectStorageService.GetExternalEndpoint(), 
+					s.fileService.objectStorageService.GetBucketName())
+			} else {
+				avatarURL = "/uploads/static/default-avatar.jpg" // 本地默认头像
+			}
+		}
+		
 		item := model.PostItem{
 			ID:           post.ID.Hex(),
 			Title:        post.Title,
@@ -1911,7 +1925,7 @@ func (s *PostService) GetPostListWithCursor(query *model.CursorQuery) (*model.Cu
 			UserID:       post.UserID.Hex(),
 			Username:     post.Username,
 			Nickname:     post.Nickname,
-			Avatar:       post.Avatar,
+			Avatar:       avatarURL,
 			Likes:        post.Likes,
 			Comments:     post.Comments,
 			LikeCount:    post.Likes,

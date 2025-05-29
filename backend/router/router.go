@@ -30,17 +30,28 @@ func SetupRouter(
 	// 配置 CORS 中间件
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
-			"http://localhost:3000", // 本地开发环境
+			"http://localhost:3000",
+			"https://yrohjdxmhthm.sealoshzh.site",
 			"https://blue-note-v443.vercel.app",
 			"https://blue-note-v443-git-master-gary-xiongs-projects.vercel.app",
 			"https://blue-note-v443-rmmfv3wi4-gary-xiongs-projects.vercel.app",
+			"https://blue-note-sigma.vercel.app",
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
+	// 添加请求日志中间件
+	r.Use(func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin != "" {
+			fmt.Printf("请求日志 - Origin: %s, Method: %s, Path: %s\n", origin, c.Request.Method, c.Request.URL.Path)
+		}
+		c.Next()
+	})
 
 	// 配置静态文件服务
 	// 确保上传目录存在

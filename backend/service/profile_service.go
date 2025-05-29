@@ -143,18 +143,21 @@ func (s *ProfileService) UpdateProfileWithAvatar(userID string, req *model.Updat
 	}
 	
 	// 处理头像上传
+	var newAvatarURL string
 	if avatarFile != nil {
 		// 尝试上传到对象存储
 		avatarURL, err := s.objectStorageService.UploadAvatar(userID, avatarFile)
 		if err != nil {
 			// 如果上传失败，记录错误但不中断流程
 			fmt.Printf("头像上传失败: %v，将使用默认头像\n", err)
-			update["avatar"] = s.GetDefaultAvatarURL()
+			newAvatarURL = s.GetDefaultAvatarURL()
 		} else {
-			update["avatar"] = avatarURL
+			newAvatarURL = avatarURL
 			fmt.Printf("头像上传成功，URL: %s\n", avatarURL)
 		}
+		update["avatar"] = newAvatarURL
 	} else if req.Avatar != "" {
+		newAvatarURL = req.Avatar
 		update["avatar"] = req.Avatar
 	}
 
@@ -168,8 +171,72 @@ func (s *ProfileService) UpdateProfileWithAvatar(userID string, req *model.Updat
 		return nil, err
 	}
 
+	// 同步更新帖子和评论中的用户信息
+	go func() {
+		s.syncUserInfoInPosts(objectID, req.Username, req.Nickname, newAvatarURL)
+	}()
+
 	// 获取更新后的用户信息
 	return s.GetUserProfile(userID, userID)
+}
+
+// syncUserInfoInPosts 同步更新帖子和评论中的用户信息
+func (s *ProfileService) syncUserInfoInPosts(userID primitive.ObjectID, username, nickname, avatar string) {
+	ctx := context.Background()
+	
+	// 构建更新字段
+	postUpdate := bson.M{}
+	commentUpdate := bson.M{}
+	
+	if username != "" {
+		postUpdate["username"] = username
+		commentUpdate["username"] = username
+	}
+	if nickname != "" {
+		postUpdate["nickname"] = nickname
+		commentUpdate["nickname"] = nickname
+	}
+	if avatar != "" {
+		postUpdate["avatar"] = avatar
+		commentUpdate["avatar"] = avatar
+	}
+	
+	// 如果没有需要更新的字段，直接返回
+	if len(postUpdate) == 0 {
+		return
+	}
+	
+	// 添加更新时间
+	postUpdate["updated_at"] = time.Now()
+	commentUpdate["updated_at"] = time.Now()
+	
+	// 更新帖子中的用户信息
+	if len(postUpdate) > 1 { // 除了updated_at还有其他字段
+		_, err := s.db.Collection("posts").UpdateMany(
+			ctx,
+			bson.M{"user_id": userID},
+			bson.M{"$set": postUpdate},
+		)
+		if err != nil {
+			fmt.Printf("同步更新帖子中的用户信息失败: %v\n", err)
+		} else {
+			fmt.Printf("成功同步更新帖子中的用户信息\n")
+		}
+	}
+	
+	// 更新评论中的用户信息
+	if len(commentUpdate) > 1 { // 除了updated_at还有其他字段
+		_, err := s.db.Collection("comments").UpdateMany(
+			ctx,
+			bson.M{"user_id": userID},
+			bson.M{"$set": commentUpdate},
+		)
+		if err != nil {
+			fmt.Printf("同步更新评论中的用户信息失败: %v\n", err)
+		} else {
+			fmt.Printf("成功同步更新评论中的用户信息\n")
+		}
+	}
 }
 
 // FollowUser 关注用户
